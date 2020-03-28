@@ -151,7 +151,7 @@ HOST_COMPILER ?= g++
 NVCC          := $(CUDA_PATH)/bin/nvcc -ccbin $(HOST_COMPILER)
 
 # internal flags
-NVCCFLAGS   := -m${TARGET_SIZE}
+NVCCFLAGS   := -m${TARGET_SIZE} -g 
 CCFLAGS     :=
 LDFLAGS     :=
 
@@ -275,7 +275,7 @@ endif
 # Target rules
 all: build
 
-build: vectorAdd
+build: reduction
 
 check.deps:
 ifeq ($(SAMPLE_ENABLED),0)
@@ -284,19 +284,22 @@ else
 	@echo "Sample is ready - all dependencies have been met"
 endif
 
-vectorAdd.o:vectorAdd.cu
+reduction.o:reduction.cpp
 	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $<
 
-vectorAdd: vectorAdd.o
+reduction_kernel.o:reduction_kernel.cu
+	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $<
+
+reduction: reduction.o reduction_kernel.o
 	$(EXEC) $(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $+ $(LIBRARIES)
 	$(EXEC) mkdir -p ../../bin/$(TARGET_ARCH)/$(TARGET_OS)/$(BUILD_TYPE)
 	$(EXEC) cp $@ ../../bin/$(TARGET_ARCH)/$(TARGET_OS)/$(BUILD_TYPE)
 
 run: build
-	$(EXEC) ./vectorAdd
+	$(EXEC) ./reduction
 
 clean:
-	rm -f vectorAdd vectorAdd.o
-	rm -rf ../../bin/$(TARGET_ARCH)/$(TARGET_OS)/$(BUILD_TYPE)/vectorAdd
+	rm -f reduction reduction.o reduction_kernel.o
+	rm -rf ../../bin/$(TARGET_ARCH)/$(TARGET_OS)/$(BUILD_TYPE)/reduction
 
 clobber: clean
