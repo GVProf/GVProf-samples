@@ -25,6 +25,7 @@ bfs/bfs
 dwt2d/dwt2d
 dwt2d/*.bmp.dwt.*
 reduction/reduction
+dxtc/dxtc
 
 .vscode/
 
