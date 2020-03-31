@@ -9,14 +9,13 @@ ifeq ($(shell uname -m), x86_64)
      endif
 endif
 
-SDK_DIR = /home/find/NVIDIA_CUDA-10.1_Samples/
 
 
 CC := $(CUDA_DIR)/bin/nvcc
 
 INCLUDE := $(CUDA_DIR)/include
 
-NVCC_FLAG := -lineinfo -O2
+NVCC_FLAG := -lineinfo -O2 -g
 
 SRC = hotspot.cu
 

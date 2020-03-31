@@ -9,7 +9,6 @@ ifeq ($(shell uname -m), x86_64)
      	CUDA_LIB_DIR := $(CUDA_DIR)/lib64
      endif
 endif
-SDK_DIR = /home/find/NVIDIA_CUDA-10.1_Samples/
 
 # C compiler
 CC = gcc
