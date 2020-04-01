@@ -20,7 +20,7 @@ INCLUDES := -I. -I$(CUDA_INSTALL_PATH)/include -I../common/inc
 
 # Common flags
 COMMONFLAGS += $(INCLUDES) 
-NVCCFLAGS += $(COMMONFLAGS) -g
+NVCCFLAGS += $(COMMONFLAGS) -g -lineinfo
 CXXFLAGS += $(COMMONFLAGS)
 CFLAGS += $(COMMONFLAGS) -std=c99 
 LDFLAGS += -L$(CUDA_INSTALL_PATH)/lib64 -lcudart
