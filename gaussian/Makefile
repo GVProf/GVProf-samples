@@ -13,7 +13,7 @@ endif
 CC := $(CUDA_DIR)/bin/nvcc
 
 INCLUDE := $(CUDA_DIR)/include
-NVCCFLAG := -g -O2 -arch sm_70
+NVCCFLAG := -g -O2 -arch sm_70 -lineinfo
 
 SRC = gaussian.cu
 EXE = gaussian
