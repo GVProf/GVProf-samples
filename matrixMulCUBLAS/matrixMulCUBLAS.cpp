@@ -82,7 +82,12 @@ void randomInit(float *data, int size)
 
 
 
-
+int N = 173056;
+int M = 16;
+int K = 27;
+int lda = K;
+int ldb = N;
+int ldc = N;
 
 void initializeCUDA(int argc, char **argv, int &devID, int &iSizeMultiple, sMatrixSize &matrix_size)
 {
@@ -107,12 +112,7 @@ void initializeCUDA(int argc, char **argv, int &devID, int &iSizeMultiple, sMatr
     int block_size = 32;
 }
 
-int N = 173056;
-int M = 16;
-int K = 27;
-int lda = K;
-int ldb = N;
-int ldc = N;
+
 
 int matrixMultiply(int argc, char **argv, int devID, sMatrixSize &matrix_size)
 {
@@ -146,13 +146,16 @@ int matrixMultiply(int argc, char **argv, int devID, sMatrixSize &matrix_size)
     // allocate host memory for the result
     float *h_C      = (float *) malloc(mem_size_C);
     float *h_CUBLAS = (float *) malloc(mem_size_C);
+    
+
 
     checkCudaErrors(cudaMalloc((void **) &d_A, mem_size_A));
     checkCudaErrors(cudaMalloc((void **) &d_B, mem_size_B));
     checkCudaErrors(cudaMemcpy(d_A, h_A, mem_size_A, cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_B, h_B, mem_size_B, cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMalloc((void **) &d_C, mem_size_C));
-
+    randomInit(h_C, size_C);
+    checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
 
     // CUBLAS version 2.0
     {
@@ -161,10 +164,32 @@ int matrixMultiply(int argc, char **argv, int devID, sMatrixSize &matrix_size)
         cublasHandle_t handle;
 
         checkCudaErrors(cublasCreate(&handle));
-        //Perform warmup operation with cublas
-        // checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, matrix_size.uiWB, matrix_size.uiHA, matrix_size.uiWA, &alpha, d_B, K, d_A, 1, &beta, d_C,27));
-        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N,M,K, &alpha, d_B, ldb, d_A, lda, &beta, d_C, ldc));
-        // copy result from device to host
+
+        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 173056,16,27, &alpha, d_B, 173056, d_A, 27, &beta, d_C, 173056));
+        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
+        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 43264,32,144, &alpha, d_B, 43264, d_A, 144, &beta, d_C, 43264));
+        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
+        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 10816,64,288, &alpha, d_B, 10816, d_A, 288, &beta, d_C, 10816));
+        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
+        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 2704,128,576, &alpha, d_B, 2704, d_A, 576, &beta, d_C, 2704));
+        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
+        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 676,256,1152, &alpha, d_B, 676, d_A, 1152, &beta, d_C, 676));
+        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
+        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 169,512,2304, &alpha, d_B, 169, d_A, 2304, &beta, d_C, 169));
+        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
+        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 169,1024,4608, &alpha, d_B, 169, d_A, 4608, &beta, d_C, 169));
+        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
+        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 169,256,1024, &alpha, d_B, 169, d_A, 1024, &beta, d_C, 169));
+        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
+        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 169,255,512, &alpha, d_B, 169, d_A, 512, &beta, d_C, 169));
+        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
+        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 169,128,256, &alpha, d_B, 169, d_A, 256, &beta, d_C, 169));
+        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
+        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 676,256,3456, &alpha, d_B, 676, d_A, 3456, &beta, d_C, 676));
+        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
+        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 676,255,256, &alpha, d_B, 676, d_A, 256, &beta, d_C, 676));
+
+
         checkCudaErrors(cudaMemcpy(h_CUBLAS, d_C, mem_size_C, cudaMemcpyDeviceToHost));
         // Destroy the handle
         checkCudaErrors(cublasDestroy(handle));
