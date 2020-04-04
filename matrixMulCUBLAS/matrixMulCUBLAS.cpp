@@ -157,7 +157,7 @@ int matrixMultiply(int argc, char **argv, int devID, sMatrixSize &matrix_size)
     // CUBLAS version 2.0
     {
         const float alpha = 1.0f;
-        const float beta  = 0.0f;
+        const float beta  = 1.0f;
         cublasHandle_t handle;
 
         checkCudaErrors(cublasCreate(&handle));
