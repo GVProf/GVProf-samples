@@ -107,12 +107,12 @@ void initializeCUDA(int argc, char **argv, int &devID, int &iSizeMultiple, sMatr
     int block_size = 32;
 }
 
-int N = 1146727411;
-int M = 1065353216;
-int K = 173056;
-int lda = 1;
-int ldb = K;
-int ldc = 27;
+int N = 173056;
+int M = 16;
+int K = 27;
+int lda = K;
+int ldb = N;
+int ldc = N;
 
 int matrixMultiply(int argc, char **argv, int devID, sMatrixSize &matrix_size)
 {
