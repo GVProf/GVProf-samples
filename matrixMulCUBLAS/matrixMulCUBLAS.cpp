@@ -176,8 +176,8 @@ int matrixMultiply(int argc, char **argv, int devID, sMatrixSize &matrix_size)
         checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 676,256,1152, &alpha, d_B, 676, d_A, 1152, &beta, d_C, 676));
         checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
         checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 169,512,2304, &alpha, d_B, 169, d_A, 2304, &beta, d_C, 169));
-        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
-        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 169,1024,4608, &alpha, d_B, 169, d_A, 4608, &beta, d_C, 169));
+        // checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
+        // checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 169,1024,4608, &alpha, d_B, 169, d_A, 4608, &beta, d_C, 169));
         checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
         checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 169,256,1024, &alpha, d_B, 169, d_A, 1024, &beta, d_C, 169));
         checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
@@ -198,6 +198,7 @@ int matrixMultiply(int argc, char **argv, int devID, sMatrixSize &matrix_size)
     free(h_A);
     free(h_B);
     free(h_C);
+    free(h_CUBLAS);
     checkCudaErrors(cudaFree(d_A));
     checkCudaErrors(cudaFree(d_B));
     checkCudaErrors(cudaFree(d_C));
