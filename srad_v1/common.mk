@@ -37,7 +37,7 @@ endef
 # CUDA detection
 #
 
-CUDA_ROOT ?= /usr/local/cuda
+CUDA_ROOT ?= /sw/summit/cuda/10.1.243
 
 MACHINE := $(shell uname -m)
 ifeq ($(MACHINE), x86_64)

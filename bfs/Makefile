@@ -1,5 +1,5 @@
 # CUDA toolkit installation path
-CUDA_DIR = /usr/local/cuda
+CUDA_DIR = /sw/summit/cuda/10.1.243
 
 # CUDA toolkit libraries
 CUDA_LIB_DIR := $(CUDA_DIR)/lib
