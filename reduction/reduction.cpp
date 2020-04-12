@@ -389,7 +389,7 @@ void shmoo(int minN, int maxN, int maxThreads, int maxBlocks, ReduceType datatyp
         reduce<T>(maxN, maxThreads, maxNumBlocks, kernel, d_idata, d_odata);
     }
 
-    int testIterations = 100;
+    int testIterations = 1;
 
     StopWatchInterface *timer = 0;
     sdkCreateTimer(&timer);
@@ -538,7 +538,7 @@ runTest(int argc, char **argv, ReduceType datatype)
         // warm-up
         reduce<T>(size, numThreads, numBlocks, whichKernel, d_idata, d_odata);
 
-        int testIterations = 100;
+        int testIterations = 1;
 
         StopWatchInterface *timer = 0;
         sdkCreateTimer(&timer);

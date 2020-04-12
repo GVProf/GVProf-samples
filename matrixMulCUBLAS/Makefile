@@ -151,7 +151,7 @@ HOST_COMPILER ?= g++
 NVCC          := $(CUDA_PATH)/bin/nvcc -ccbin $(HOST_COMPILER)
 
 # internal flags
-NVCCFLAGS   := -m${TARGET_SIZE} -lineinfo -g -O2
+NVCCFLAGS   := -m${TARGET_SIZE} -g 
 CCFLAGS     :=
 LDFLAGS     :=
 
@@ -187,18 +187,26 @@ ifneq ($(TARGET_ARCH),$(HOST_ARCH))
                 CCFLAGS += --sysroot=$(TARGET_FS)
             endif
             LDFLAGS += --sysroot=$(TARGET_FS)
-            LDFLAGS += -rpath-link=$(TARGET_FS)/lib -L $(TARGET_FS)/lib
-            LDFLAGS += -rpath-link=$(TARGET_FS)/usr/lib -L $(TARGET_FS)/usr/lib
-            LDFLAGS += -rpath-link=$(TARGET_FS)/usr/lib/aarch64-linux-gnu -L $(TARGET_FS)/usr/lib/aarch64-linux-gnu
+            LDFLAGS += -rpath-link=$(TARGET_FS)/lib -L$(TARGET_FS)/lib
+            LDFLAGS += -rpath-link=$(TARGET_FS)/lib/aarch64-linux-gnu -L$(TARGET_FS)/lib/aarch64-linux-gnu
+            LDFLAGS += -rpath-link=$(TARGET_FS)/usr/lib -L$(TARGET_FS)/usr/lib
+            LDFLAGS += -rpath-link=$(TARGET_FS)/usr/lib/aarch64-linux-gnu -L$(TARGET_FS)/usr/lib/aarch64-linux-gnu
             LDFLAGS += --unresolved-symbols=ignore-in-shared-libs
-            CCFLAGS += -isystem=$(TARGET_FS)/usr/include
-            CCFLAGS += -isystem=$(TARGET_FS)/usr/include/aarch64-linux-gnu
+            CCFLAGS += -isystem=$(TARGET_FS)/usr/include  -I$(TARGET_FS)/usr/include
+            CCFLAGS += -isystem=$(TARGET_FS)/usr/include/aarch64-linux-gnu -I$(TARGET_FS)/usr/include/aarch64-linux-gnu
         endif
     endif
     ifeq ($(TARGET_ARCH)-$(TARGET_OS),aarch64-qnx)
         CCFLAGS += -DWIN_INTERFACE_CUSTOM -I/usr/include/aarch64-qnx-gnu
         LDFLAGS += -lsocket
         LDFLAGS += -rpath=/usr/lib/aarch64-qnx-gnu -L/usr/lib/aarch64-qnx-gnu
+        ifneq ($(TARGET_FS),)
+            LDFLAGS += -rpath=$(TARGET_FS)/usr/lib -L $(TARGET_FS)/usr/lib
+            LDFLAGS += -rpath=$(TARGET_FS)/usr/libnvidia -L $(TARGET_FS)/usr/libnvidia
+        endif
+        ifdef TARGET_OVERRIDE # cuda toolkit targets override
+            NVCCFLAGS += -target-dir $(TARGET_OVERRIDE)
+        endif
     endif
 endif
 
@@ -266,6 +274,8 @@ GENCODE_FLAGS += -gencode arch=compute_$(HIGHEST_SM),code=compute_$(HIGHEST_SM)
 endif
 endif
 
+LIBRARIES += -lcublas
+
 ifeq ($(SAMPLE_ENABLED),0)
 EXEC ?= @echo "[@]"
 endif
@@ -275,7 +285,7 @@ endif
 # Target rules
 all: build
 
-build: vectorAdd
+build: matrixMulCUBLAS
 
 check.deps:
 ifeq ($(SAMPLE_ENABLED),0)
@@ -284,19 +294,19 @@ else
 	@echo "Sample is ready - all dependencies have been met"
 endif
 
-vectorAdd.o:vectorAdd.cu
+matrixMulCUBLAS.o:matrixMulCUBLAS.cpp
 	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $<
 
-vectorAdd: vectorAdd.o
+matrixMulCUBLAS: matrixMulCUBLAS.o
 	$(EXEC) $(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $+ $(LIBRARIES)
 	$(EXEC) mkdir -p ../../bin/$(TARGET_ARCH)/$(TARGET_OS)/$(BUILD_TYPE)
 	$(EXEC) cp $@ ../../bin/$(TARGET_ARCH)/$(TARGET_OS)/$(BUILD_TYPE)
 
 run: build
-	$(EXEC) ./vectorAdd
+	$(EXEC) ./matrixMulCUBLAS
 
 clean:
-	rm -f vectorAdd vectorAdd.o
-	rm -rf ../../bin/$(TARGET_ARCH)/$(TARGET_OS)/$(BUILD_TYPE)/vectorAdd
+	rm -f matrixMulCUBLAS matrixMulCUBLAS.o
+	rm -rf ../../bin/$(TARGET_ARCH)/$(TARGET_OS)/$(BUILD_TYPE)/matrixMulCUBLAS
 
 clobber: clean
