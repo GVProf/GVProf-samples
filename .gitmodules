@@ -1,0 +1,3 @@
+[submodule "tsm2-imp"]
+	path = tsm2-imp
+	url = git@github.com:Jokeren/tsm2-imp.git
