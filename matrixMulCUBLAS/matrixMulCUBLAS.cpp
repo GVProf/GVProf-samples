@@ -67,14 +67,9 @@
 #define max(a,b) ((a > b) ? a : b)
 #endif
 
-typedef struct _matrixSize      // Optional Command-line multiplier for matrix sizes
-{
-    unsigned int uiWA, uiHA, uiWB, uiHB, uiWC, uiHC;
-} sMatrixSize;
-
 
 // Allocates a matrix with random float entries.
-void randomInit(float *data, int size)
+void OneInit(float *data, int size)
 {
     for (int i = 0; i < size; ++i)
         data[i] = 1.0;
@@ -82,18 +77,12 @@ void randomInit(float *data, int size)
 
 
 
-int N = 173056;
-int M = 16;
-int K = 27;
-int lda = K;
-int ldb = N;
-int ldc = N;
 
-void initializeCUDA(int argc, char **argv, int &devID, int &iSizeMultiple, sMatrixSize &matrix_size)
+void initializeCUDA(int argc, char **argv)
 {
     // By default, we use device 0, otherwise we override the device ID based on what is provided at the command line
     cudaError_t error;
-    devID = 0;
+    int devID = 0;
 
     devID = findCudaDevice(argc, (const char **)argv);
 
@@ -109,91 +98,52 @@ void initializeCUDA(int argc, char **argv, int &devID, int &iSizeMultiple, sMatr
 
     printf("GPU Device %d: \"%s\" with compute capability %d.%d\n\n", devID, deviceProp.name, deviceProp.major, deviceProp.minor);
 
-    int block_size = 32;
 }
 
 
 
-int matrixMultiply(int argc, char **argv, int devID, sMatrixSize &matrix_size)
+void matrixMultiply(int N, int M, int K, int lda, int ldb, int ldc)
 {
     cudaDeviceProp deviceProp;
 
-    checkCudaErrors(cudaGetDeviceProperties(&deviceProp, devID));
+    checkCudaErrors(cudaGetDeviceProperties(&deviceProp, 0));
 
     int block_size = 32;
 
     // allocate host memory for matrices A and B
     unsigned int size_A = lda*M;
+    unsigned int size_B = ldb*K;
+    unsigned int size_C = ldc * M;
     unsigned int mem_size_A = sizeof(float) * size_A;
     float *h_A = (float *)malloc(mem_size_A);
-    unsigned int size_B = ldb*K;
     unsigned int mem_size_B = sizeof(float) * size_B;
     float *h_B = (float *)malloc(mem_size_B);
-
-
-    // initialize host memory
-    randomInit(h_A, size_A);
-    randomInit(h_B, size_B);
-
-    // allocate device memory
-    float *d_A, *d_B, *d_C;
-
-
-
-    unsigned int size_C = ldc * M;
     unsigned int mem_size_C = sizeof(float) * size_C;
-
-    // allocate host memory for the result
+        // allocate host memory for the result
     float *h_C      = (float *) malloc(mem_size_C);
     float *h_CUBLAS = (float *) malloc(mem_size_C);
-    
 
-
+    // initialize host memory
+    OneInit(h_A, size_A);
+    OneInit(h_B, size_B);
+    OneInit(h_C, size_C);
+    // allocate device memory
+    float *d_A, *d_B, *d_C;
     checkCudaErrors(cudaMalloc((void **) &d_A, mem_size_A));
     checkCudaErrors(cudaMalloc((void **) &d_B, mem_size_B));
     checkCudaErrors(cudaMemcpy(d_A, h_A, mem_size_A, cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_B, h_B, mem_size_B, cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMalloc((void **) &d_C, mem_size_C));
-    randomInit(h_C, size_C);
     checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
 
-    // CUBLAS version 2.0
-    {
-        const float alpha = 1.0f;
-        const float beta  = 1.0f;
-        cublasHandle_t handle;
-
-        checkCudaErrors(cublasCreate(&handle));
-
-        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 173056,16,27, &alpha, d_B, 173056, d_A, 27, &beta, d_C, 173056));
-        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
-        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 43264,32,144, &alpha, d_B, 43264, d_A, 144, &beta, d_C, 43264));
-        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
-        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 10816,64,288, &alpha, d_B, 10816, d_A, 288, &beta, d_C, 10816));
-        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
-        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 2704,128,576, &alpha, d_B, 2704, d_A, 576, &beta, d_C, 2704));
-        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
-        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 676,256,1152, &alpha, d_B, 676, d_A, 1152, &beta, d_C, 676));
-        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
-        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 169,512,2304, &alpha, d_B, 169, d_A, 2304, &beta, d_C, 169));
-        // checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
-        // checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 169,1024,4608, &alpha, d_B, 169, d_A, 4608, &beta, d_C, 169));
-        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
-        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 169,256,1024, &alpha, d_B, 169, d_A, 1024, &beta, d_C, 169));
-        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
-        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 169,255,512, &alpha, d_B, 169, d_A, 512, &beta, d_C, 169));
-        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
-        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 169,128,256, &alpha, d_B, 169, d_A, 256, &beta, d_C, 169));
-        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
-        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 676,256,3456, &alpha, d_B, 676, d_A, 3456, &beta, d_C, 676));
-        checkCudaErrors(cudaMemcpy(d_C, h_C, mem_size_C, cudaMemcpyHostToDevice));
-        checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, 676,255,256, &alpha, d_B, 676, d_A, 256, &beta, d_C, 676));
-
-
-        checkCudaErrors(cudaMemcpy(h_CUBLAS, d_C, mem_size_C, cudaMemcpyDeviceToHost));
-        // Destroy the handle
-        checkCudaErrors(cublasDestroy(handle));
-    }
+    const float alpha = 1.0f;
+    const float beta  = 1.0f;
+    cublasHandle_t handle;
+    checkCudaErrors(cublasCreate(&handle));
+    checkCudaErrors(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N,M,K, &alpha, d_B, ldb, d_A, lda, &beta, d_C, ldc));
+    checkCudaErrors(cudaMemcpy(h_CUBLAS, d_C, mem_size_C, cudaMemcpyDeviceToHost));
+    // Destroy the handle
+    checkCudaErrors(cublasDestroy(handle));
 
     free(h_A);
     free(h_B);
@@ -202,9 +152,6 @@ int matrixMultiply(int argc, char **argv, int devID, sMatrixSize &matrix_size)
     checkCudaErrors(cudaFree(d_A));
     checkCudaErrors(cudaFree(d_B));
     checkCudaErrors(cudaFree(d_C));
-
-
-    return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -214,12 +161,15 @@ int main(int argc, char **argv)
 {
     printf("[Matrix Multiply CUBLAS] - Starting...\n");
 
-    int devID = 0, sizeMult = 5;
-    sMatrixSize matrix_size;
+    int Ns[13] = {173056, 43264, 10816, 2704, 676, 169, 169, 169, 169, 169, 169, 676, 676};
+    int Ms[13] = {16, 32, 64, 128, 256, 512, 1024, 256, 512, 255, 128, 256, 255};
+    int Ks[13] = {27, 144, 288, 576, 1152, 2304, 4608, 1024, 2304, 512, 256, 3456, 256};
+ 
+    initializeCUDA(argc, argv);
+    for (int i = 0; i<13;i++){
+        matrixMultiply(Ns[i], Ms[i], Ks[i], Ks[i], Ns[i], Ns[i]);
 
-    initializeCUDA(argc, argv, devID, sizeMult, matrix_size);
+    }
 
-    int matrix_result = matrixMultiply(argc, argv, devID, matrix_size);
-
-    return matrix_result;
+    return 0;
 }
