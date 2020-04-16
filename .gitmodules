@@ -7,3 +7,6 @@
 [submodule "Quicksilver"]
 	path = Quicksilver
 	url = git@github.com:Jokeren/Quicksilver.git
+[submodule "laghos"]
+	path = laghos
+	url = git@github.com:FindHao/Laghos.git
