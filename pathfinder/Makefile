@@ -12,7 +12,7 @@ endif
 CC := $(CUDA_DIR)/bin/nvcc
 INCLUDE := $(CUDA_DIR)/include
 
-NVCCFLAGS := -g -lineinfo -O2
+NVCCFLAGS := -g -lineinfo -O3
 
 SRC = pathfinder.cu
 
