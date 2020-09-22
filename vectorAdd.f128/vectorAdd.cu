@@ -20,6 +20,7 @@
 #include <stdio.h>
 
 // For the CUDA runtime routines (prefixed with "cuda_")
+#include <iostream>
 #include <cuda_runtime.h>
 #include <helper_math.h>
 #include <helper_cuda.h>
@@ -77,16 +78,18 @@ main(void)
     //     h_A[i] = rand()/(float4)RAND_MAX;
     //     h_B[i] = rand()/(float4)RAND_MAX;
     // }
-    uint c = 0x12345678;
-    h_A[0].x = (c & 0xff) / 255.0f;
-    h_A[0].y = ((c>>8) & 0xff) / 255.0f;
-    h_A[0].z = ((c>>16) & 0xff) / 255.0f;
-    h_A[0].w = ((c>>24) & 0xff) / 255.0f;
+    uint c = 0x11115678;
+    h_A[0].x = (c & 0xff);
+    h_A[0].y = ((c>>8) & 0xff);
+    h_A[0].z = ((c>>16) & 0xff);
+    h_A[0].w = ((c>>24) & 0xff);
     c = 0x12345678;
-    h_B[0].x = (c & 0xff) / 255.0f;
-    h_B[0].y = ((c>>8) & 0xff) / 255.0f;
-    h_B[0].z = ((c>>16) & 0xff) / 255.0f;
-    h_B[0].w = ((c>>24) & 0xff) / 255.0f;
+    h_B[0].x = (c & 0xff);
+    h_B[0].y = ((c>>8) & 0xff);
+    h_B[0].z = ((c>>16) & 0xff);
+    h_B[0].w = ((c>>24) & 0xff);
+    //std::cout << h_A[0].x << ", " << h_A[0].y << ", " << h_A[0].z << ", " << h_A[0].w << std::endl;
+    //std::cout << h_B[0].x << ", " << h_B[0].y << ", " << h_B[0].z << ", " << h_B[0].w << std::endl;
     // Allocate the device input vector A
     float4 *d_A = NULL;
     err = cudaMalloc((void **)&d_A, size);
