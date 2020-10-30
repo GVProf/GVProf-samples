@@ -44,3 +44,5 @@ core
 */*hpcstruct
 
 data/
+*/result.txt
+*/reports/

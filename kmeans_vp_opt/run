@@ -1,0 +1,1 @@
+./kmeans -o -i ../data/kdd_cup
