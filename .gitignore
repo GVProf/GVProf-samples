@@ -27,11 +27,30 @@ dwt2d/*.bmp.dwt.*
 reduction/reduction
 dxtc/dxtc
 matrixMulCUBLAS/matrixMulCUBLAS
+b+tree/b+tree.out
+heartwall/heartwall
+hotspot3D/3D
+hotspot3D/output.out
+huffman/pavle
+lavaMD/lavaMD
+lud/cuda/lud_cuda
+lud/cuda/*log
+lud/cuda/*csv
+myocyte/myocyte.out
+myocyte/output.txt
+nn/nn
+nw/needle
+particlefilter/particlefilter_float
+particlefilter/particlefilter_naive
+streamcluster/sc_gpu
+
+
+
 .vscode/
 
 NsightEclipse.xml
 
-
+*/*cu.cpp.ii
 core
 */hpctoolkit-*-measurements*
 */hpctoolkit-*-database*
@@ -42,7 +61,10 @@ core
 *csv
 *hpcstruct
 */*hpcstruct
+*/output.txt
 
 data/
 */result.txt
 */reports/
+*/gvprof-measurements/
+*/gvprof-database*/

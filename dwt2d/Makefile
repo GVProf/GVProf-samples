@@ -1,5 +1,6 @@
 #Configure
-CUDA_INSTALL_PATH ?= /usr/local/cuda
+#CUDA_INSTALL_PATH ?= /usr/local/cuda
+CUDA_INSTALL_PATH = $(CUDA_DIR)
 EXECUTABLE := dwt2d
 
 # Debug options
@@ -18,10 +19,11 @@ CUFILES := main.cu dwt.cu components.cu dwt_cuda/fdwt53.cu dwt_cuda/fdwt97.cu dw
 # Includes
 INCLUDES := -I. -I$(CUDA_INSTALL_PATH)/include -I../common/inc
 
+
 # Common flags
 COMMONFLAGS += $(INCLUDES) 
-NVCCFLAGS += $(COMMONFLAGS) -g -lineinfo
-CXXFLAGS += $(COMMONFLAGS)
+NVCCFLAGS += $(COMMONFLAGS)
+CXXFLAGS += $(COMMONFLAGS) -g
 CFLAGS += $(COMMONFLAGS) -std=c99 
 LDFLAGS += -L$(CUDA_INSTALL_PATH)/lib64 -lcudart
 
@@ -62,8 +64,8 @@ ifeq ($(dbg),1)
         NVCCFLAGS += -G
     endif
 else 
-    COMMONFLAGS += -O2 
-    NVCCFLAGS   += --compiler-options -fno-strict-aliasing -g
+    COMMONFLAGS += -O3 -g
+    NVCCFLAGS   += --compiler-options -fno-strict-aliasing -lineinfo
     CXXFLAGS    += -fno-strict-aliasing
     CFLAGS      += -fno-strict-aliasing
 endif

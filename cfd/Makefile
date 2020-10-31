@@ -8,7 +8,7 @@ ifeq ($(shell uname -m), x86_64)
      endif
 endif
 
-NVCC_FLAG := -g -lineinfo
+NVCC_FLAG := -g -lineinfo 
 
 COMMON_INC=../common/inc
 COMMON_LIB=../common/lib
