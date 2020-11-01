@@ -55,7 +55,7 @@ core
 */hpctoolkit-*-measurements*
 */hpctoolkit-*-database*
 */prof
-*/*log*
+*/*log
 */workspace/
 */prof/
 *csv
