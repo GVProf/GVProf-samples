@@ -1,7 +1,7 @@
 SHELL=/bin/sh -ue
 
-CFLAGS   += -O2
-CXXFLAGS += -O2
+CFLAGS   += -O3 -g
+CXXFLAGS += -O3
 
 ifdef OUTPUT
 CPPFLAGS += -DOUTPUT
@@ -37,7 +37,7 @@ endef
 # CUDA detection
 #
 
-CUDA_ROOT ?= /sw/summit/cuda/10.1.243
+CUDA_ROOT ?= /usr/local/cuda
 
 MACHINE := $(shell uname -m)
 ifeq ($(MACHINE), x86_64)
@@ -68,7 +68,7 @@ NVCC_LDLIBS += -Xcompiler $(call join-list,$(NONCUDA_LDLIBS),$(COMMA))
 endif
 NVCC_LDLIBS += -lcuda -lnvToolsExt
 
-NVCCFLAGS += --generate-line-info -arch=compute_70
+NVCCFLAGS += --generate-line-info -arch=compute_70 -g -O3
 ifdef DEBUG
 NVCCFLAGS += -g --device-debug
 endif

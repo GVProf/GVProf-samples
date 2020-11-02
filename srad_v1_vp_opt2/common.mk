@@ -1,7 +1,7 @@
 SHELL=/bin/sh -ue
 
-CFLAGS   += -O2
-CXXFLAGS += -O2
+CFLAGS   += -O3
+CXXFLAGS += -O3
 
 ifdef OUTPUT
 CPPFLAGS += -DOUTPUT
@@ -68,7 +68,7 @@ NVCC_LDLIBS += -Xcompiler $(call join-list,$(NONCUDA_LDLIBS),$(COMMA))
 endif
 NVCC_LDLIBS += -lcuda -lnvToolsExt
 
-NVCCFLAGS += --generate-line-info -arch=compute_70
+NVCCFLAGS += --generate-line-info -arch=compute_70 -O3 -g
 ifdef DEBUG
 NVCCFLAGS += -g --device-debug
 endif
