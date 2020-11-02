@@ -11,11 +11,11 @@
 
 __global__ void
 bpnn_layerforward_CUDA(float *input_cuda,
-	                   float *output_hidden_cuda,
-					   float *input_hidden_cuda,
-					   float *hidden_partial_sum,
-					   int in,
-					   int hid) 
+  float *output_hidden_cuda,
+  float *input_hidden_cuda,
+  float *hidden_partial_sum,
+  int in,
+  int hid) 
 {
    int by = blockIdx.y;
    int tx = threadIdx.x;
@@ -108,4 +108,5 @@ __global__ void bpnn_adjust_weights_cuda(float * delta,
      oldw[index_x] = ((ETA * delta[index_x]) + (MOMENTUM * oldw[index_x]));
    }
 }
+
 #endif 

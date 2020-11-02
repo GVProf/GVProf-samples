@@ -12,11 +12,11 @@ endif
 
 # C compiler
 CC = gcc
-CC_FLAGS = -g -O2
+CC_FLAGS = -g -O3
 
 # CUDA compiler
 NVCC = $(CUDA_DIR)/bin/nvcc
-NVCC_FLAGS = -I$(CUDA_DIR)/include -lineinfo -arch sm_70 -g -O2
+NVCC_FLAGS = -I$(CUDA_DIR)/include -lineinfo -arch sm_70 -g -O3
 
 
 backprop: backprop.o facetrain.o imagenet.o backprop_cuda.o 

@@ -164,36 +164,17 @@ void bpnn_train_cuda(BPNN *net, float *eo, float *eh)
   cudaMalloc((void**) &hidden_delta_cuda, (hid + 1) * sizeof(float));
   cudaMalloc((void**) &input_prev_weights_cuda, (in + 1) * (hid + 1) * sizeof(float));
 
-  bool delta_zero = true;
-  for (size_t i = 0; i < hid + 1; ++i) {
-    if (net->hidden_delta[i] != 0) {
-      delta_zero = false;
-      break;
-    }
-  }
-  if (!delta_zero) {
-    cudaMemcpy(hidden_delta_cuda, net->hidden_delta, (hid + 1) * sizeof(float), cudaMemcpyHostToDevice);
-  }
+  cudaMemcpy(hidden_delta_cuda, net->hidden_delta, (hid + 1) * sizeof(float), cudaMemcpyHostToDevice);
   cudaMemcpy(input_prev_weights_cuda, input_weights_prev_one_dim, (in + 1) * (hid + 1) * sizeof(float), cudaMemcpyHostToDevice);
   cudaMemcpy(input_hidden_cuda, input_weights_one_dim, (in + 1) * (hid + 1) * sizeof(float), cudaMemcpyHostToDevice);
 
-  if (!delta_zero) {
-    bpnn_adjust_weights_cuda<<< grid, threads >>>(hidden_delta_cuda,  
-      hid, 
-      input_cuda, 
-      in,
-      input_hidden_cuda, 
-      input_prev_weights_cuda
-      );
-  } else {
-    bpnn_adjust_weights_cuda2<<< grid, threads >>>(
-      hid, 
-      input_cuda, 
-      in,
-      input_hidden_cuda, 
-      input_prev_weights_cuda
-      );
-  }
+  bpnn_adjust_weights_cuda<<< grid, threads >>>(hidden_delta_cuda,  
+    hid, 
+    input_cuda, 
+    in,
+    input_hidden_cuda, 
+    input_prev_weights_cuda
+    );
 
   //cudaMemcpy(net->input_units, input_cuda, (in + 1) * sizeof(float), cudaMemcpyDeviceToHost);
   cudaMemcpy(input_weights_one_dim, input_hidden_cuda, (in + 1) * (hid + 1) * sizeof(float), cudaMemcpyDeviceToHost);

@@ -1,4 +1,3 @@
-
 # CUDA toolkit installation path
 CUDA_DIR ?= /usr/local/cuda
 

@@ -11,11 +11,11 @@
 
 __global__ void
 bpnn_layerforward_CUDA(float *input_cuda,
-	                   float *output_hidden_cuda,
-					   float *input_hidden_cuda,
-					   float *hidden_partial_sum,
-					   int in,
-					   int hid) 
+  float *output_hidden_cuda,
+  float *input_hidden_cuda,
+  float *hidden_partial_sum,
+  int in,
+  int hid) 
 {
    int by = blockIdx.y;
    int tx = threadIdx.x;
@@ -78,13 +78,12 @@ bpnn_layerforward_CUDA(float *input_cuda,
 }
 
 
-__global__ void bpnn_adjust_weights_cuda(
-   // float * delta,   
+__global__ void bpnn_adjust_weights_cuda(float * delta,   
 										 int hid,         
 										 float * ly,      
 										 int in,          
-										 float * w)
-										//  float * oldw)							
+										 float * w,       
+										 float * oldw)  									
 {
   
   
@@ -99,52 +98,57 @@ __global__ void bpnn_adjust_weights_cuda(
    //eta = 0.3;
    //momentum = 0.3;
 
-   // w[index] += ((ETA * delta[index_x] * ly[index_y]) + (MOMENTUM * oldw[index]));
-   // oldw[index] = ((ETA * delta[index_x] * ly[index_y]) + (MOMENTUM * oldw[index]));
+   float d = delta[index_x];
+   float y = ly[index_y];
+   float ww = oldw[index];
 
-   w[index] += ((ETA * 0 * ly[index_y]) + (MOMENTUM * 0));
+   if (ww == 0 && d == 0) {
+   } else {
+     w[index] += ((ETA * d * y) + (MOMENTUM * ww));
+     oldw[index] = ((ETA * d * y) + (MOMENTUM * ww));
+   }
 
    __syncthreads();
 
    if (ty == 0 && by ==0){
-   w[index_x] += ((ETA * 0) + (MOMENTUM * 0));
-   // oldw[index_x] = ((ETA * 0) + (MOMENTUM * 0));
+   w[index_x] += ((ETA * delta[index_x]) + (MOMENTUM * oldw[index_x]));
+   oldw[index_x] = ((ETA * delta[index_x]) + (MOMENTUM * oldw[index_x]));
    }
-
-
 }
 
 __global__ void bpnn_adjust_weights_cuda2(
-    float * delta,
-    int hid,
-    float *ly,
-    int in,
-    float *w)
-//  float * oldw)
+										 int hid,         
+										 float * ly,      
+										 int in,          
+										 float * w,       
+										 float * oldw)  									
 {
-
+  
+  
    int by = blockIdx.y;
 
    int tx = threadIdx.x;
    int ty = threadIdx.y;
-
-   int index = (hid + 1) * HEIGHT * by + (hid + 1) * ty + tx + 1 + (hid + 1);
+	
+   int index =  ( hid + 1 ) * HEIGHT * by + ( hid + 1 ) * ty + tx + 1 + ( hid + 1 ) ;  
    int index_y = HEIGHT * by + ty + 1;
    int index_x = tx + 1;
    //eta = 0.3;
    //momentum = 0.3;
 
-   w[index] += ((ETA * delta[index_x] * ly[index_y]));
-   // oldw[index] = ((ETA * delta[index_x] * ly[index_y]) + (MOMENTUM * oldw[index]));
+   float ww = oldw[index];
 
-   w[index] += ((ETA * 0 * ly[index_y]) + (MOMENTUM * 0));
+   if (ww == 0) {
+   } else {
+     w[index] += (MOMENTUM * ww);
+     oldw[index] = (MOMENTUM * ww);
+   }
 
    __syncthreads();
 
-   if (ty == 0 && by == 0)
-   {
-      w[index_x] += ((ETA * delta[index_x]) + (MOMENTUM * 0));
-      // oldw[index_x] = ((ETA * 0) + (MOMENTUM * 0));
+   if (ty == 0 && by ==0){
+     w[index_x] += MOMENTUM * oldw[index_x];
+     oldw[index_x] = MOMENTUM * oldw[index_x];
    }
 }
 
