@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <time.h>
 
 #define BLOCK_SIZE 256
@@ -14,9 +15,9 @@
 void run(int argc, char **argv);
 
 int rows, cols;
-int16_t *data;
-int16_t **wall;
-int16_t *result;
+uint8_t *data;
+uint8_t **wall;
+uint8_t *result;
 #define M_SEED 9
 int pyramid_height;
 
@@ -36,15 +37,15 @@ void init(int argc, char **argv) {
     fprintf(fp, "Usage: dynproc row_len col_len pyramid_height\n");
     exit(0);
   }
-  data = new int16_t[rows * cols];
+  data = new uint8_t[rows * cols];
 
-  wall = new int16_t *[rows];
+  wall = new uint8_t *[rows];
 
   for (int n = 0; n < rows; n++)
 
     wall[n] = data + cols * n;
 
-  result = new int16_t[cols];
+  result = new uint8_t[cols];
 
   int seed = M_SEED;
 
@@ -87,13 +88,13 @@ void fatal(char *s) { fprintf(stderr, "error: %s\n", s); }
 #define CLAMP_RANGE(x, min, max) x = (x < (min)) ? min : ((x > (max)) ? max : x)
 #define MIN(a, b) ((a) <= (b) ? (a) : (b))
 
-__global__ void dynproc_kernel(int iteration, int16_t *gpuWall, int16_t *gpuSrc,
-                               int16_t *gpuResults, int cols, int rows,
+__global__ void dynproc_kernel(int iteration, uint8_t *gpuWall, uint8_t *gpuSrc,
+                               uint8_t *gpuResults, int cols, int rows,
                                int startStep, int border)
 {
 
-  __shared__ int16_t prev[BLOCK_SIZE];
-  __shared__ int16_t result[BLOCK_SIZE];
+  __shared__ int prev[BLOCK_SIZE];
+  __shared__ int result[BLOCK_SIZE];
 
   int bx = blockIdx.x;
   int tx = threadIdx.x;
@@ -163,7 +164,7 @@ __global__ void dynproc_kernel(int iteration, int16_t *gpuWall, int16_t *gpuSrc,
 /*
    compute N time steps
 */
-int calc_path(int16_t *gpuWall, int16_t *gpuResult[2], int rows, int cols,
+int calc_path(uint8_t *gpuWall, uint8_t *gpuResult[2], int rows, int cols,
               int pyramid_height, int blockCols, int borderCols)
 {
   dim3 dimBlock(BLOCK_SIZE);
@@ -206,21 +207,21 @@ void run(int argc, char **argv) {
           "%d\nblockGrid:[%d]\ntargetBlock:[%d]\n",
           pyramid_height, cols, borderCols, BLOCK_SIZE, blockCols,
           smallBlockCol);
-  int16_t *gpuWall;
-  int16_t *gpuResult[2];
+  uint8_t *gpuWall;
+  uint8_t *gpuResult[2];
   int size = rows * cols;
 
-  cudaMalloc((void **)&gpuResult[0], sizeof(int16_t) * cols);
-  cudaMalloc((void **)&gpuResult[1], sizeof(int16_t) * cols);
-  cudaMemcpy(gpuResult[0], data, sizeof(int16_t) * cols, cudaMemcpyHostToDevice);
-  cudaMalloc((void **)&gpuWall, sizeof(int16_t) * (size - cols));
-  cudaMemcpy(gpuWall, data + cols, sizeof(int16_t) * (size - cols),
+  cudaMalloc((void **)&gpuResult[0], sizeof(uint8_t) * cols);
+  cudaMalloc((void **)&gpuResult[1], sizeof(uint8_t) * cols);
+  cudaMemcpy(gpuResult[0], data, sizeof(uint8_t) * cols, cudaMemcpyHostToDevice);
+  cudaMalloc((void **)&gpuWall, sizeof(uint8_t) * (size - cols));
+  cudaMemcpy(gpuWall, data + cols, sizeof(uint8_t) * (size - cols),
              cudaMemcpyHostToDevice);
 
   int final_ret = calc_path(gpuWall, gpuResult, rows, cols, pyramid_height,
                             blockCols, borderCols);
 
-  cudaMemcpy(result, gpuResult[final_ret], sizeof(int16_t) * cols,
+  cudaMemcpy(result, gpuResult[final_ret], sizeof(uint8_t) * cols,
              cudaMemcpyDeviceToHost);
 
 #ifdef BENCH_PRINT
