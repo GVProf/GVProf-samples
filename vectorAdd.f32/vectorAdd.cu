@@ -77,7 +77,7 @@ main(void)
     //     h_B[i] = rand()/(float)RAND_MAX;
     // }
     h_A[0] = 0.123456789;
-    h_B[0] = 1;
+    h_B[0] = 0.1;
     // Allocate the device input vector A
     float *d_A = NULL;
     err = cudaMalloc((void **)&d_A, size);

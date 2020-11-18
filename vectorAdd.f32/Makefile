@@ -151,8 +151,8 @@ HOST_COMPILER ?= g++
 NVCC          := $(CUDA_PATH)/bin/nvcc -ccbin $(HOST_COMPILER)
 
 # internal flags
-NVCCFLAGS   := -m${TARGET_SIZE}
-CCFLAGS     :=
+NVCCFLAGS   := -m${TARGET_SIZE} -g -lineinfo
+CCFLAGS     := -g
 LDFLAGS     :=
 
 # build flags
@@ -248,7 +248,7 @@ LIBRARIES :=
 ################################################################################
 
 # Gencode arguments
-SMS ?= 30 35 37 50 52 60 61 70 75
+SMS ?=  70 75
 
 ifeq ($(SMS),)
 $(info >>> WARNING - no SM architectures have been specified - waiving sample <<<)

@@ -50,7 +50,7 @@ main(void)
     cudaError_t err = cudaSuccess;
 
     // Print the vector length to be used, and compute its size
-    int numElements = 1;
+    int numElements = 2;
     size_t size = numElements * sizeof(double);
     printf("[Vector addition of %d elements]\n", numElements);
 
@@ -77,7 +77,9 @@ main(void)
     //     h_B[i] = rand()/(double)RAND_MAX;
     // }
     h_A[0] = 0.123456789;
+    h_A[1] = 0.1;
     h_B[0] = 1;
+    h_B[1] = 1.2;
     // Allocate the device input vector A
     double *d_A = NULL;
     err = cudaMalloc((void **)&d_A, size);
