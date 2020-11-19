@@ -1,15 +1,15 @@
 [submodule "tsm2-imp"]
 	path = tsm2-imp
-	url = https://github.com:Jokeren/tsm2-imp.git
+	url = https://github.com/Jokeren/tsm2-imp.git
 [submodule "darknet"]
 	path = darknet
-	url = https://github.com:Jokeren/darknet.git
+	url = https://github.com/Jokeren/darknet.git
 [submodule "Quicksilver"]
 	path = Quicksilver
-	url = https://github.com:Jokeren/Quicksilver.git
+	url = https://github.com/Jokeren/Quicksilver.git
 [submodule "laghos"]
 	path = laghos
-	url = https://github.com:FindHao/Laghos.git
+	url = https://github.com/FindHao/Laghos.git
 [submodule "lammps"]
 	path = lammps
-	url = https://github.com:Jokeren/lammps.git
+	url = https://github.com/Jokeren/lammps.git
