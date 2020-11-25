@@ -35,6 +35,15 @@ void vecAdd(int *l, int *r, int *p, size_t N) {
 }
 
 
+__global__
+void vecAdd_odd(int *l, int *r, int *p, size_t N) {
+  size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
+  if (idx < N && idx % 2) {
+    p[idx] = l[idx] + r[idx];
+  }
+}
+
+
 int main(int argc, char *argv[]) {
 #ifdef USE_MPI
   int numtasks, rank;
@@ -80,6 +89,9 @@ int main(int argc, char *argv[]) {
     
     // 3. kernel to kernel duplicate
     vecAdd<<<blocks, threads>>>(dp, dp, dp, N);
+
+    // 4. kernel to kernel redundancy
+    vecAdd_odd<<<blocks, threads>>>(dl, dr, dp, N);
 
     RUNTIME_API_CALL(cudaMemcpy(p, dp, N * sizeof(int), cudaMemcpyDeviceToHost));
 
