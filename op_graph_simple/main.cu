@@ -36,6 +36,15 @@ void vecAdd(int *l, int *r, int *p, size_t N) {
 
 
 __global__
+void vecAdd_eq(int *l, int *r, int *p, size_t N) {
+  size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
+  if (idx < N) {
+    l[idx] = r[idx];
+  }
+}
+
+
+__global__
 void vecAdd_odd(int *l, int *r, int *p, size_t N) {
   size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < N && idx % 2) {
@@ -88,7 +97,7 @@ int main(int argc, char *argv[]) {
     vecAdd<<<blocks, threads>>>(dl, dr, dp, N);
     
     // 3. kernel to kernel duplicate
-    vecAdd<<<blocks, threads>>>(dp, dp, dp, N);
+    vecAdd_eq<<<blocks, threads>>>(dp, dp, dp, N);
 
     // 4. kernel to kernel redundancy
     vecAdd_odd<<<blocks, threads>>>(dl, dr, dp, N);
