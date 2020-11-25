@@ -37,7 +37,7 @@ endef
 # CUDA detection
 #
 
-CUDA_ROOT ?= /usr/local/cuda
+CUDA_DIR ?= /usr/local/cuda
 
 MACHINE := $(shell uname -m)
 ifeq ($(MACHINE), x86_64)
@@ -49,7 +49,7 @@ endif
 
 CPPFLAGS += -isystem $(CUDA_ROOT)/include -isystem ../common/rodinia-common
 
-NVCC=$(CUDA_ROOT)/bin/nvcc
+NVCC=$(CUDA_DIR)/bin/nvcc
 
 LDLIBS   += -lcudart -lnvToolsExt
 

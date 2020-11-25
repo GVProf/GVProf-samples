@@ -1,4 +1,4 @@
-CUDA_DIR = /scratch/opt/cuda-11.0.3/
+CUDA_DIR ?= /usr/local/cuda/
 CUDA_LIB_DIR := $(CUDA_DIR)/lib64
 
 # Example

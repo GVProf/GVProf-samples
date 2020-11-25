@@ -1,5 +1,1 @@
-<<<<<<< HEAD
-./heartwall ../../data/heartwall/test.avi 20
-=======
 ./heartwall ../data/test.avi 20
->>>>>>> vp_opt
