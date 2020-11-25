@@ -1,5 +1,5 @@
 # CUDA toolkit installation path
-CUDA_DIR = /usr/local/cuda
+CUDA_DIR ?= /usr/local/cuda
 
 # CUDA toolkit libraries
 CUDA_LIB_DIR := $(CUDA_DIR)/lib
@@ -11,7 +11,7 @@ endif
 
 # C compiler
 CC = gcc
-CC_FLAGS = -g -fopenmp -O2 
+CC_FLAGS = -g -fopenmp -O3
 
 # CUDA compiler
 NVCC = $(CUDA_DIR)/bin/nvcc
@@ -21,7 +21,7 @@ NVCC_FLAGS = -I$(CUDA_DIR)/include  -lineinfo -arch sm_70 -g
 ifeq ($(dbg),1)
 	NVCC_FLAGS += -O0
 else
-	NVCC_FLAGS += -O2
+	NVCC_FLAGS += -O3
 endif
 
 

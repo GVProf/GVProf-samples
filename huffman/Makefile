@@ -4,7 +4,7 @@ CC = g++
 CUDA_DIR = /scratch/opt/cuda-11.0.3/
 CUDA_LIB_DIR := $(CUDA_DIR)/lib64
 
-NVCC_OPTS=-O3 -arch=sm_70 -Xcompiler -m64 -g 
+NVCC_OPTS=-O3 -arch=sm_70 -Xcompiler -m64 -g  -lineinfo
 
 GCC_OPTS=-O3 -Wall -Wextra -m64 -g
 

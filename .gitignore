@@ -43,7 +43,16 @@ nw/needle
 particlefilter/particlefilter_float
 particlefilter/particlefilter_naive
 streamcluster/sc_gpu
-
+cfd/density
+cfd/density_energy
+cfd/momentum
+cfd_vp_opt/density
+cfd_vp_opt/density_energy
+cfd_vp_opt/momentum
+cfd_vp_opt/euler3d
+cfd_vp_opt/euler3d_double
+cfd_vp_opt/pre_euler3d
+cfd_vp_opt/pre_euler3d_double
 
 
 .vscode/
