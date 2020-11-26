@@ -91,6 +91,9 @@ int main(int argc, char *argv[]) {
     // partial overwrite
     RUNTIME_API_CALL(cudaMemcpy(dl, dr, N / 2 * sizeof(int), cudaMemcpyDeviceToDevice));
 
+    // non-zero offset redundant write
+    RUNTIME_API_CALL(cudaMemcpy(dl + N / 2, dl + N / 2, N / 2 * sizeof(int), cudaMemcpyDeviceToDevice));
+
     size_t threads = 256;
     size_t blocks = (N - 1) / threads + 1;
 
@@ -99,7 +102,7 @@ int main(int argc, char *argv[]) {
     // 3. kernel to kernel duplicate
     vecAdd_eq<<<blocks, threads>>>(dp, dp, dp, N);
 
-    // 4. kernel to kernel redundancy
+    // 4. kernel to kernel duplicate, partial write
     vecAdd_odd<<<blocks, threads>>>(dl, dr, dp, N);
 
     RUNTIME_API_CALL(cudaMemcpy(p, dp, N * sizeof(int), cudaMemcpyDeviceToHost));
