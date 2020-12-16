@@ -13,7 +13,8 @@ endif
 CC := $(CUDA_DIR)/bin/nvcc
 
 INCLUDE := $(CUDA_DIR)/include
-NVCCFlag=-g -O3 -arch sm_70 -lineinfo
+ARCH ?= sm_70
+NVCCFlag=-g -O3 -arch $(ARCH) -lineinfo
 SRC = bfs.cu
 
 EXE = bfs
