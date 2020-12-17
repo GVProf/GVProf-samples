@@ -34,7 +34,7 @@
 ################################################################################
 
 # Location of the CUDA Toolkit
-CUDA_PATH ?= /usr/local/cuda
+CUDA_PATH ?= /scratch/opt/cuda-11.2
 
 ##############################
 # start deprecated interface #
