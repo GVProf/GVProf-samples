@@ -78,7 +78,7 @@ bpnn_layerforward_CUDA(float *input_cuda,
 }
 
 
-__global__ void bpnn_adjust_weights_cuda(float * delta,   
+__global__ void bpnn_adjust_weights_cuda2(float * delta,   
 										 int hid,         
 										 float * ly,      
 										 int in,          
@@ -116,7 +116,7 @@ __global__ void bpnn_adjust_weights_cuda(float * delta,
    }
 }
 
-__global__ void bpnn_adjust_weights_cuda2(
+__global__ void bpnn_adjust_weights_cuda(
 										 int hid,         
 										 float * ly,      
 										 int in,          

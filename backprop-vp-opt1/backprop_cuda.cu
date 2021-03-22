@@ -178,7 +178,7 @@ void bpnn_train_cuda(BPNN *net, float *eo, float *eh)
   cudaMemcpy(input_hidden_cuda, input_weights_one_dim, (in + 1) * (hid + 1) * sizeof(float), cudaMemcpyHostToDevice);
 
   if (!delta_zero) {
-    bpnn_adjust_weights_cuda<<< grid, threads >>>(hidden_delta_cuda,  
+    bpnn_adjust_weights_cuda2<<< grid, threads >>>(hidden_delta_cuda,  
       hid, 
       input_cuda, 
       in,
@@ -186,7 +186,7 @@ void bpnn_train_cuda(BPNN *net, float *eo, float *eh)
       input_prev_weights_cuda
       );
   } else {
-    bpnn_adjust_weights_cuda2<<< grid, threads >>>(
+    bpnn_adjust_weights_cuda<<< grid, threads >>>(
       hid, 
       input_cuda, 
       in,
@@ -195,7 +195,7 @@ void bpnn_train_cuda(BPNN *net, float *eo, float *eh)
       );
   }
 
-  //cudaMemcpy(net->input_units, input_cuda, (in + 1) * sizeof(float), cudaMemcpyDeviceToHost);
+  cudaMemcpy(net->input_units, input_cuda, (in + 1) * sizeof(float), cudaMemcpyDeviceToHost);
   cudaMemcpy(input_weights_one_dim, input_hidden_cuda, (in + 1) * (hid + 1) * sizeof(float), cudaMemcpyDeviceToHost);
     
   cudaFree(input_cuda);
