@@ -93,8 +93,8 @@ void BFSGraph( int argc, char** argv)
 
 	// allocate host memory
 	Node* h_graph_nodes = (Node*) malloc(sizeof(Node)*no_of_nodes);
-	// bool *h_graph_mask = (bool*) malloc(sizeof(bool)*no_of_nodes);
-	// bool *h_updating_graph_mask = (bool*) malloc(sizeof(bool)*no_of_nodes);
+	//bool *h_graph_mask = (bool*) malloc(sizeof(bool)*no_of_nodes);
+	//bool *h_updating_graph_mask = (bool*) malloc(sizeof(bool)*no_of_nodes);
 	bool *h_graph_visited = (bool*) malloc(sizeof(bool)*no_of_nodes);
 
 	int start, edgeno;   
@@ -104,9 +104,9 @@ void BFSGraph( int argc, char** argv)
 		fscanf(fp,"%d %d",&start,&edgeno);
 		h_graph_nodes[i].starting = start;
 		h_graph_nodes[i].no_of_edges = edgeno;
-		// h_graph_mask[i]=false;
-		// h_updating_graph_mask[i]=false;
-		h_graph_visited[i]=false;
+		//h_graph_mask[i]=false;
+		//h_updating_graph_mask[i]=false;
+		//h_graph_visited[i]=false;
 	}
 
 	//read the source node from the file
@@ -114,8 +114,8 @@ void BFSGraph( int argc, char** argv)
 	source=0;
 
 	//set the source node as true in the mask
-	// h_graph_mask[source]=true;
-	h_graph_visited[source]=true;
+	//h_graph_mask[source]=true;
+	//h_graph_visited[source]=true;
 
 	fscanf(fp,"%d",&edge_list_size);
 
@@ -150,7 +150,10 @@ void BFSGraph( int argc, char** argv)
 		printf("error in cudaMemset(d_graph_mask");
 		exit(1);
 	}
-	// cudaMemcpy( d_graph_mask, h_graph_mask, sizeof(bool)*no_of_nodes, cudaMemcpyHostToDevice) ;
+	if(cudaMemset(d_graph_mask, true, sizeof(bool)) != cudaSuccess){
+		printf("error in cudaMemset(d_graph_mask");
+		exit(1);
+	}
 
 	bool* d_updating_graph_mask;
 	cudaMalloc( (void**) &d_updating_graph_mask, sizeof(bool)*no_of_nodes) ;
@@ -158,12 +161,18 @@ void BFSGraph( int argc, char** argv)
 		printf("error in cudaMemset(d_graph_mask");
 		exit(1);
 	}
-	// cudaMemcpy( d_updating_graph_mask, h_updating_graph_mask, sizeof(bool)*no_of_nodes, cudaMemcpyHostToDevice) ;
 
 	//Copy the Visited nodes array to device memory
 	bool* d_graph_visited;
 	cudaMalloc( (void**) &d_graph_visited, sizeof(bool)*no_of_nodes) ;
-	cudaMemcpy( d_graph_visited, h_graph_visited, sizeof(bool)*no_of_nodes, cudaMemcpyHostToDevice) ;
+	if (cudaMemset(d_graph_visited, false, no_of_nodes*sizeof(bool))!= cudaSuccess){
+		printf("error in cudaMemset(d_graph_mask");
+		exit(1);
+	}
+	if (cudaMemset(d_graph_visited, true, sizeof(bool))!= cudaSuccess){
+		printf("error in cudaMemset(d_graph_mask");
+		exit(1);
+	}
 
 	// allocate mem for the result on host side
 	int* h_cost = (int*) malloc( sizeof(int)*no_of_nodes);
@@ -225,8 +234,8 @@ void BFSGraph( int argc, char** argv)
 	// cleanup memory
 	free( h_graph_nodes);
 	free( h_graph_edges);
-	// free( h_graph_mask);
-	// free( h_updating_graph_mask);
+	//free( h_graph_mask);
+	//free( h_updating_graph_mask);
 	free( h_graph_visited);
 	free( h_cost);
 	cudaFree(d_graph_nodes);
