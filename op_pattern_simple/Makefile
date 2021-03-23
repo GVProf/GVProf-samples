@@ -1,7 +1,13 @@
-CONFIGS := Makefile.config
-TEMPLATE := gpu_samples.mk
+CXX := nvcc
+
+USE_MPI :=
+
+SHOWFLAGS :=
+
+CPU_ARCH := x86-64
+
+GPU_ARCH :=
 
 EXEC := main
 
-include $(CONFIGS)
-include $(TEMPLATE)
+include ../configs.mk

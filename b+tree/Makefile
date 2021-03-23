@@ -1,15 +1,6 @@
-# CUDA toolkit installation path
-CUDA_DIR = /scratch/opt/cuda-11.0.3/
-# CUDA toolkit libraries
-CUDA_LIB_DIR := $(CUDA_DIR)/lib64
-ifeq ($(shell uname -m), x86_64)
-     ifeq ($(shell if test -d $(CUDA_DIR)/lib64; then echo T; else echo F; fi), T)
-     	CUDA_LIB_DIR := $(CUDA_DIR)/lib64
-     endif
-endif
-
+GPU_ARCH ?= 
 CUDA_LIB =	-lcuda -lcudart
-CUDA_FLAG = -arch sm_70 -g -lineinfo
+CUDA_FLAG = $(GPU_ARCH) -g -lineinfo
 
 # ====================================================================================================100
 #	END
@@ -107,7 +98,6 @@ b+tree.out:	./main.o \
 			./util/num/num.o \
 			./util/cuda/cuda.o \
 			-lm \
-			-L$(CUDA_LIB_DIR) \
 			$(CUDA_LIB)\
                        -o b+tree.out
 
