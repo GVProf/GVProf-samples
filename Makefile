@@ -11,7 +11,14 @@ all:
 	cd cfd; make;  cd ..;\
 	cd cfd-vp-opt; make;  cd ..;\
 	cd cfd-vp-opt1; make;  cd ..;\
-	cd cfd-vp-opt2; make;  cd ..;
+	cd cfd-vp-opt2; make;  cd ..; \
+	cd dct8x8; make;  cd ..; \
+	cd dwt2d; make;  cd ..; \
+	cd dxtc; make;  cd ..; \
+	cd gaussian; make;  cd ..; \
+	cd heartwall; make;  cd ..;\
+	cd histogram; make;  cd ..; \
+	cd hotspot; make;  cd ..;
 
 clean:
 	cd backprop; make clean;  cd ..;\
@@ -26,4 +33,11 @@ clean:
 	cd cfd; make clean;  cd ..;\
 	cd cfd-vp-opt; make clean;  cd ..;\
 	cd cfd-vp-opt1; make clean;  cd ..;\
-	cd cfd-vp-opt2; make clean;  cd ..;
+	cd cfd-vp-opt2; make clean;  cd ..; \
+	cd dct8x8; make clean;  cd ..; \
+	cd dwt2d; make clean;  cd ..; \
+	cd dxtc; make clean;  cd ..; \
+	cd gaussian; make clean;  cd ..; \
+	cd heartwall; make clean;  cd ..; \
+	cd histogram; make clean;  cd ..; \
+	cd hotspot; make clean;  cd ..;
