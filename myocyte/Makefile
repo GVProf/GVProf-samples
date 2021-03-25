@@ -7,13 +7,13 @@
           # .
 	# command n
 
+GPU_ARCH ?=
+
 # link objects(binaries) together
 myocyte.out:		main.o
 	nvcc	main.o \
-				-I/usr/local/cuda/include \
-				-L/usr/local/cuda/lib \
 				-lm -lcuda -lcudart \
-                    -O3 -g -lineinfo            -o myocyte.out
+        $(GPU_ARCH) -O3 -g -lineinfo -o myocyte.out
 
 # compile main function file into object (binary)
 main.o:	define.c \
@@ -36,7 +36,7 @@ main.o:	define.c \
 				file.c \
 				timer.c
 	nvcc	main.cu \
-				-c -O3 -g -lineinfo
+				$(GPU_ARCH) -c -O3 -g -lineinfo
 
 # delete all object files
 clean:

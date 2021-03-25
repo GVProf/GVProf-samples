@@ -4,16 +4,16 @@ NVCC = nvcc
 DEFS += \
 		-DGPU_TIMER \
 		$(SPACE)
+GPU_ARCH ?= 
 
 NVCCFLAGS += -I../common \
 			 -O3  -g -lineinfo\
 			 -use_fast_math \
-			 -arch=sm_70 \
+			 $(GPU_ARCH) \
 			 -lm \
 			 $(SPACE)
 
 CFLAGS += -I../common \
-					-I/usr/include/cuda \
 		  -O3 -g\
 		  -Wall \
 		  $(SPACE)
@@ -41,4 +41,4 @@ $(EXECUTABLE) : $(OBJS)
 	$(NVCC) $(NVCCFLAGS) -o $@  $?
 
 clean:
-	rm -f $(EXECUTABLE) $(OBJS) *.linkinfo
+	rm -f $(EXECUTABLE) $(OBJS) *.linkinfo *.sqlite *.qdpre tmp*

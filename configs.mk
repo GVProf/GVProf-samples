@@ -50,6 +50,6 @@ $(DEVICE_OBJ): %.o : %.cu
 	$(CXX) $(SHOWFLAGS) $(GPU_FLAGS) $(DEVICE_FLAGS) $<
 
 clean:
-	rm -rf $(EXEC) *.o *.dot *.hpcstruct *.cubin *.qdrep
+	rm -rf $(EXEC) *.o *.dot *.hpcstruct *.cubin *.qdrep *.sqlite
 
 print-% : ; $(info $* is $(flavor $*) variable set to [$($*)]) @true
