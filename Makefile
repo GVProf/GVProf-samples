@@ -21,7 +21,9 @@ all:
 	cd hotspot; make;  cd ..; \
 	cd hotspot-vp-opt; make;  cd ..; \
 	cd hotspot3D; make;  cd ..; \
-	cd hotspot3D-vp-opt; make;  cd ..;
+	cd hotspot3D-vp-opt; make;  cd ..; \
+	cd huffman; make;  cd ..; \
+	cd huffman-vp-opt; make;  cd ..;
 
 clean:
 	cd backprop; make clean;  cd ..;\
@@ -46,4 +48,6 @@ clean:
 	cd hotspot; make clean;  cd ..; \
 	cd hotspot-vp-opt; make clean;  cd ..; \
 	cd hotspot3D; make clean;  cd ..; \
-	cd hotspot3D-vp-opt; make clean;  cd ..;
+	cd hotspot3D-vp-opt; make clean;  cd ..; \
+	cd huffman; make clean;  cd ..; \
+	cd huffman-vp-opt; make clean;  cd ..;
