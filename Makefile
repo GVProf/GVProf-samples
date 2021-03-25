@@ -18,7 +18,10 @@ all:
 	cd gaussian; make;  cd ..; \
 	cd heartwall; make;  cd ..;\
 	cd histogram; make;  cd ..; \
-	cd hotspot; make;  cd ..;
+	cd hotspot; make;  cd ..; \
+	cd hotspot-vp-opt; make;  cd ..; \
+	cd hotspot3D; make;  cd ..; \
+	cd hotspot3D-vp-opt; make;  cd ..;
 
 clean:
 	cd backprop; make clean;  cd ..;\
@@ -40,4 +43,7 @@ clean:
 	cd gaussian; make clean;  cd ..; \
 	cd heartwall; make clean;  cd ..; \
 	cd histogram; make clean;  cd ..; \
-	cd hotspot; make clean;  cd ..;
+	cd hotspot; make clean;  cd ..; \
+	cd hotspot-vp-opt; make clean;  cd ..; \
+	cd hotspot3D; make clean;  cd ..; \
+	cd hotspot3D-vp-opt; make clean;  cd ..;
