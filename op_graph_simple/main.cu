@@ -2,9 +2,6 @@
 #include <omp.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
 
 #include "common.h"
 
@@ -54,14 +51,6 @@ void vecAdd_odd(int *l, int *r, int *p, size_t N) {
 
 
 int main(int argc, char *argv[]) {
-#ifdef USE_MPI
-  int numtasks, rank;
-  MPI_Init(&argc, &argv);
-  MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  printf("MPI task %d/%d\n", rank, numtasks);
-#endif
-
   // Init device
   int device_id = 0;
   if (argc > 1) {
@@ -111,8 +100,5 @@ int main(int argc, char *argv[]) {
 
   cudaDeviceSynchronize();
 
-#ifdef USE_MPI
-  MPI_Finalize();
-#endif
   return 0;
 }

@@ -1,19 +1,16 @@
 #makefile
 
-CUDA_DIR ?=  /usr/local/cuda/
-CUDA_LIB_DIR := $(CUDA_DIR)/lib64
+CC := nvcc
 
-CC := $(CUDA_DIR)/bin/nvcc
-
-INCLUDE := $(CUDA_DIR)/include
+GPU_ARCH ?=
 
 all: naive float
 
 naive: ex_particle_CUDA_naive_seq.cu
-	$(CC) -I$(INCLUDE) -L$(CUDA_LIB_DIR) -lcuda -g -lineinfo -lm -O3 -use_fast_math -arch sm_70 ex_particle_CUDA_naive_seq.cu -o particlefilter_naive
+	$(CC) $(GPU_ARCH) -lcuda -g -lineinfo -lm -O3 -use_fast_math ex_particle_CUDA_naive_seq.cu -o particlefilter_naive
 	
 float: ex_particle_CUDA_float_seq.cu
-	$(CC) -I$(INCLUDE) -L$(CUDA_LIB_DIR) -lcuda -g -lineinfo -lm -O3 -use_fast_math -arch sm_70 ex_particle_CUDA_float_seq.cu -o particlefilter_float
+	$(CC) $(GPU_ARCH) -lcuda -g -lineinfo -lm -O3 -use_fast_math ex_particle_CUDA_float_seq.cu -o particlefilter_float
 
 clean:
-	rm particlefilter_naive particlefilter_float
+	rm particlefilter_naive particlefilter_float *.qdrep *.sqlite tmp*
