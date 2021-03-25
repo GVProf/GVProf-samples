@@ -31,7 +31,9 @@ all:
 	cd nw; make; cd ..; \
 	cd op_graph_simple; make; cd ..; \
 	cd op_pattern_simple; make; cd ..; \
-	cd particlefilter; make; cd ..;
+	cd particlefilter; make; cd ..; \
+	cd pathfinder; make; cd ..; \
+	cd pathfinder-vp-opt; make; cd ..;
 
 clean:
 	cd backprop; make clean;  cd ..;\
@@ -66,4 +68,6 @@ clean:
 	cd nw; make clean; cd ..; \
 	cd op_graph_simple; make clean; cd ..; \
 	cd op_pattern_simple; make clean; cd ..; \
-	cd particlefilter; make clean; cd ..;
+	cd particlefilter; make clean; cd ..; \
+	cd pathfinder; make clean; cd ..; \
+	cd pathfinder-vp-opt; make clean; cd ..;
