@@ -26,6 +26,8 @@ all:
 	cd huffman-vp-opt; make;  cd ..; \
 	cd interval_merge; make; cd ..; \
 	cd lud; make; cd ..; \
+	cd nn; make; cd ..; \
+	cd nw; make; cd ..;
 
 clean:
 	cd backprop; make clean;  cd ..;\
@@ -54,4 +56,6 @@ clean:
 	cd huffman; make clean;  cd ..; \
 	cd huffman-vp-opt; make clean;  cd ..; \
 	cd interval_merge; make clean; cd ..; \
-	cd lud; make clean; cd ..; 
+	cd lud; make clean; cd ..;  \
+	cd nn; make clean; cd ..; \
+	cd nw; make clean; cd ..;
