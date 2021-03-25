@@ -249,7 +249,8 @@ int main(int argc, char *argv[]) {
     cudaMalloc((void **)&d_dE, mem_size); //
 
     // allocate memory for coefficient on DEVICE
-    // cudaMalloc((void **)&d_c, mem_size); //
+    cudaMalloc((void **)&d_c, mem_size); //
+    cuMemsetD32((CUdeviceptr)d_c, 1, mem_size / sizeof(fp));
 
     checkCUDAError("setup");
 
@@ -370,7 +371,7 @@ int main(int argc, char *argv[]) {
                                   d_dW,   // West derivative
                                   d_dE,   // East derivative
                                   q0sqr,  // standard deviation of ROI
-                                //   d_c,    // diffusion coefficient
+                                  d_c,    // diffusion coefficient
                                   d_I);   // output image
 
         checkCUDAError("srad");
@@ -388,7 +389,7 @@ int main(int argc, char *argv[]) {
                                    d_dS, // South derivative
                                    d_dW, // West derivative
                                    d_dE, // East derivative
-                                //    d_c,  // diffusion coefficient
+                                   d_c,  // diffusion coefficient
                                    d_I); // output image
 
         checkCUDAError("srad2");

@@ -35,7 +35,11 @@ all:
 	cd pathfinder; make; cd ..; \
 	cd pathfinder-vp-opt; make; cd ..; \
 	cd reduction; make; cd ..; \
-	cd recursiveGaussian; make; cd ..;
+	cd recursiveGaussian; make; cd ..; \
+	cd srad_v1; make; cd ..; \
+	cd srad_v1-vp-opt; make; cd ..; \
+	cd srad_v1-vp-opt1; make; cd ..; \
+	cd srad_v1-vp-opt2; make; cd ..;
 
 clean:
 	cd backprop; make clean;  cd ..;\
@@ -75,3 +79,7 @@ clean:
 	cd pathfinder-vp-opt; make clean; cd ..; \
 	cd reduction; make clean; cd ..; \
 	cd recursiveGaussian; make clean; cd ..;
+	cd srad_v1; make clean; cd ..; \
+	cd srad_v1-vp-opt; make clean; cd ..; \
+	cd srad_v1-vp-opt1; make clean; cd ..; \
+	cd srad_v1-vp-opt2; make clean; cd ..;

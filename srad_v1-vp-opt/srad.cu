@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
     long NeROI;         // ROI nbr of elements
 
     // surrounding pixel indicies
-    int *iN, *iS, *jE, *jW;
+    int16_t *iN, *iS, *jE, *jW;
 
     // counters
     int iter;  // primary loop
@@ -124,10 +124,10 @@ int main(int argc, char *argv[]) {
     // DEVICE
     fp *d_sums; // partial sum
     fp *d_sums2;
-    int *d_iN;
-    int *d_iS;
-    int *d_jE;
-    int *d_jW;
+    int16_t *d_iN;
+    int16_t *d_iS;
+    int16_t *d_jE;
+    int16_t *d_jW;
     fp *d_dN;
     fp *d_dS;
     fp *d_dW;
@@ -195,12 +195,12 @@ int main(int argc, char *argv[]) {
         (r2 - r1 + 1) * (c2 - c1 + 1); // number of elements in ROI, ROI size
 
     // allocate variables for surrounding pixels
-    mem_size_i = sizeof(int) * Nr;  //
-    iN = (int *)malloc(mem_size_i); // north surrounding element
-    iS = (int *)malloc(mem_size_i); // south surrounding element
-    mem_size_j = sizeof(int) * Nc;  //
-    jW = (int *)malloc(mem_size_j); // west surrounding element
-    jE = (int *)malloc(mem_size_j); // east surrounding element
+    mem_size_i = sizeof(int16_t) * Nr;  //
+    iN = (int16_t *)malloc(mem_size_i); // north surrounding element
+    iS = (int16_t *)malloc(mem_size_i); // south surrounding element
+    mem_size_j = sizeof(int16_t) * Nc; //
+    jW = (int16_t *)malloc(mem_size_j); // west surrounding element
+    jE = (int16_t *)malloc(mem_size_j); // east surrounding element
 
     // N/S/W/E indices of surrounding pixels (every element of IMAGE)
     for (i = 0; i < Nr; i++) {
@@ -249,7 +249,8 @@ int main(int argc, char *argv[]) {
     cudaMalloc((void **)&d_dE, mem_size); //
 
     // allocate memory for coefficient on DEVICE
-    // cudaMalloc((void **)&d_c, mem_size); //
+    cudaMalloc((void **)&d_c, mem_size); //
+    cuMemsetD32((CUdeviceptr)d_c, 1, mem_size / sizeof(fp));
 
     checkCUDAError("setup");
 
@@ -370,7 +371,7 @@ int main(int argc, char *argv[]) {
                                   d_dW,   // West derivative
                                   d_dE,   // East derivative
                                   q0sqr,  // standard deviation of ROI
-                                //   d_c,    // diffusion coefficient
+                                  d_c,    // diffusion coefficient
                                   d_I);   // output image
 
         checkCUDAError("srad");
@@ -388,7 +389,7 @@ int main(int argc, char *argv[]) {
                                    d_dS, // South derivative
                                    d_dW, // West derivative
                                    d_dE, // East derivative
-                                //    d_c,  // diffusion coefficient
+                                   d_c,  // diffusion coefficient
                                    d_I); // output image
 
         checkCUDAError("srad2");
