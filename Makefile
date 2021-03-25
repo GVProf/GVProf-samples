@@ -33,7 +33,9 @@ all:
 	cd op_pattern_simple; make; cd ..; \
 	cd particlefilter; make; cd ..; \
 	cd pathfinder; make; cd ..; \
-	cd pathfinder-vp-opt; make; cd ..;
+	cd pathfinder-vp-opt; make; cd ..; \
+	cd reduction; make; cd ..; \
+	cd recursiveGaussian; make; cd ..;
 
 clean:
 	cd backprop; make clean;  cd ..;\
@@ -70,4 +72,6 @@ clean:
 	cd op_pattern_simple; make clean; cd ..; \
 	cd particlefilter; make clean; cd ..; \
 	cd pathfinder; make clean; cd ..; \
-	cd pathfinder-vp-opt; make clean; cd ..;
+	cd pathfinder-vp-opt; make clean; cd ..; \
+	cd reduction; make clean; cd ..; \
+	cd recursiveGaussian; make clean; cd ..;
