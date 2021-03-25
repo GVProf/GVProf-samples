@@ -108,14 +108,14 @@ kernel_gpu_cuda_wrapper(par_str par_cpu,
 	//==================================================50
 
 	cudaMalloc(	(void **)&d_rv_gpu, 
-				dim_cpu.space_mem / 4);
+				dim_cpu.space_mem / 8);
 
 	//==================================================50
 	//	qv
 	//==================================================50
 
 	cudaMalloc(	(void **)&d_qv_gpu, 
-				dim_cpu.space_mem2 / 4);
+				dim_cpu.space_mem2 / 8);
 
 	//====================================================================================================100
 	//	GPU MEMORY				(MALLOC) COPY
@@ -153,7 +153,7 @@ kernel_gpu_cuda_wrapper(par_str par_cpu,
 
 	cudaMemcpy(	d_rv_gpu,
 				rv_cpu,
-				dim_cpu.space_mem / 4,
+				dim_cpu.space_mem / 8,
 				cudaMemcpyHostToDevice);
 
 	//==================================================50
@@ -162,7 +162,7 @@ kernel_gpu_cuda_wrapper(par_str par_cpu,
 
 	cudaMemcpy(	d_qv_gpu,
 				qv_cpu,
-				dim_cpu.space_mem2 / 4,
+				dim_cpu.space_mem2 / 8,
 				cudaMemcpyHostToDevice);
 
 	//====================================================================================================100

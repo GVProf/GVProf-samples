@@ -228,7 +228,7 @@ main(	int argc,
 	srand(time(NULL));
 
 	// input (distances)
-	rv_cpu = (FOUR_INT*)malloc(dim_cpu.space_mem / 4);
+	rv_cpu = (FOUR_INT*)malloc(dim_cpu.space_mem / 8);
 	for(i=0; i<dim_cpu.space_elem; i=i+1){
 		rv_cpu[i].v = (rand()%10 + 1);			// get a number in the range 0.1 - 1.0
 		rv_cpu[i].x = (rand()%10 + 1);			// get a number in the range 0.1 - 1.0
@@ -237,7 +237,7 @@ main(	int argc,
 	}
 
 	// input (charge)
-	qv_cpu = (int8_t*)malloc(dim_cpu.space_mem2 / 4);
+	qv_cpu = (int8_t*)malloc(dim_cpu.space_mem2 / 8);
 	for(i=0; i<dim_cpu.space_elem; i=i+1){
 		qv_cpu[i] = (rand()%10 + 1) / 10.0;			// get a number in the range 0.1 - 1.0
 	}
