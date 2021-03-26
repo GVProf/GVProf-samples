@@ -3,7 +3,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-#include "common.h"
+#include "../common/common.h"
 
 
 static const size_t N = 1000;

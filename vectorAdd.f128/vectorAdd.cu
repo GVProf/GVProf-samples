@@ -22,8 +22,6 @@
 // For the CUDA runtime routines (prefixed with "cuda_")
 #include <iostream>
 #include <cuda_runtime.h>
-#include <helper_math.h>
-#include <helper_cuda.h>
 /**
  * CUDA Kernel Device code
  *
@@ -37,7 +35,10 @@ vectorAdd( float4 *A,  float4 *B, float4 *C, int numElements)
 
     if (i < numElements)
     {
-        C[i] = A[i] + B[i];
+        C[i].x = A[i].x + B[i].x;
+        C[i].y = A[i].y + B[i].y;
+        C[i].z = A[i].z + B[i].z;
+        C[i].w = A[i].w + B[i].w;
     }
 }
 

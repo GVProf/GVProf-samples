@@ -39,7 +39,23 @@ all:
 	cd srad_v1; make; cd ..; \
 	cd srad_v1-vp-opt; make; cd ..; \
 	cd srad_v1-vp-opt1; make; cd ..; \
-	cd srad_v1-vp-opt2; make; cd ..;
+	cd srad_v1-vp-opt2; make; cd ..; \
+	cd srad_v2; make; cd ..; \
+	cd streamcluster; make; cd ..; \
+	cd streamcluster-vp-opt; make; cd ..; \
+	cd stress; make; cd ..; \
+	cd vectorAdd.f128; make; cd ..; \
+	cd vectorAdd.f64; make; cd ..; \
+	cd vectorAdd.f32; make; cd ..; \
+	cd vectorAdd.f16; make; cd ..; \
+	cd vectorAdd.s64; make; cd ..; \
+	cd vectorAdd.s32; make; cd ..; \
+	cd vectorAdd.s16; make; cd ..; \
+	cd vectorAdd.u16; make; cd ..; \
+	cd vectorAdd.u64; make; cd ..; \
+	cd vectorAdd.u32; make; cd ..; \
+	cd vectorAdd.u16; make; cd ..; \
+	cd vectorAdd.u8; make; cd ..;
 
 clean:
 	cd backprop; make clean;  cd ..;\
@@ -82,4 +98,20 @@ clean:
 	cd srad_v1; make clean; cd ..; \
 	cd srad_v1-vp-opt; make clean; cd ..; \
 	cd srad_v1-vp-opt1; make clean; cd ..; \
-	cd srad_v1-vp-opt2; make clean; cd ..;
+	cd srad_v1-vp-opt2; make clean; cd ..; \
+	cd srad_v2; make clean; cd ..; \
+	cd stress; make clean; cd ..; \
+	cd streamcluster; make clean; cd ..; \
+	cd streamcluster-vp-opt; make clean; cd ..; \
+	cd vectorAdd.f128; make clean; cd ..; \
+	cd vectorAdd.f64; make clean; cd ..; \
+	cd vectorAdd.f32; make clean; cd ..; \
+	cd vectorAdd.f16; make clean; cd ..; \
+	cd vectorAdd.s64; make clean; cd ..; \
+	cd vectorAdd.s32; make clean; cd ..; \
+	cd vectorAdd.s16; make clean; cd ..; \
+	cd vectorAdd.u16; make clean; cd ..; \
+	cd vectorAdd.u64; make clean; cd ..; \
+	cd vectorAdd.u32; make clean; cd ..; \
+	cd vectorAdd.u16; make clean; cd ..; \
+	cd vectorAdd.u8; make clean; cd ..;

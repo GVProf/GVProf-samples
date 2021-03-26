@@ -3,11 +3,8 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <pthread.h>
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
 
-#include "common.h"
+#include "../common/common.h"
 
 static size_t N = 10000;
 
@@ -35,21 +32,13 @@ void func_b(int cnt, CUfunction function, size_t blocks, size_t threads, CUstrea
 //----------------------------------------------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
-#ifdef USE_MPI
-	int numtasks, rank;
-  MPI_Init(&argc, &argv);
-  MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  printf("MPI task %d/%d\n", rank, numtasks);
-#endif
-
-	size_t NUM_CONTEXTS = 1;
+	size_t NUM_CONTEXTS = 4;
 	char *buf = NULL;
 	if ((buf = getenv("NUM_CONTEXTS")) != NULL) {
 		NUM_CONTEXTS = atoi(buf);
 	}
 
-	size_t NUM_STREAMS_PER_CONTEXT = 1;
+	size_t NUM_STREAMS_PER_CONTEXT = 8;
 	if ((buf = getenv("NUM_STREAMS_PER_CONTEXT")) != NULL) {
 		NUM_STREAMS_PER_CONTEXT = atoi(buf);
 	}
@@ -167,9 +156,6 @@ int main(int argc, char *argv[]) {
 		DRIVER_API_CALL(cuCtxSetCurrent(NULL));
 	}
 
-#ifdef USE_MPI
-	MPI_Finalize();
-#endif
 	return 0;
 }
 //----------------------------------------------------------------------------------------------------------

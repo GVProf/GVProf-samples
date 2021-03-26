@@ -37,8 +37,6 @@ endef
 # CUDA detection
 #
 
-CUDA_DIR ?= /usr/local/cuda
-
 MACHINE := $(shell uname -m)
 ifeq ($(MACHINE), x86_64)
 LDFLAGS += -L$(CUDA_ROOT)/lib64
@@ -47,9 +45,9 @@ ifeq ($(MACHINE), i686)
 LDFLAGS += -L$(CUDA_ROOT)/lib
 endif
 
-CPPFLAGS += -isystem $(CUDA_ROOT)/include -isystem ../common/rodinia-common
+CPPFLAGS ?=
 
-NVCC=$(CUDA_DIR)/bin/nvcc
+NVCC=nvcc
 
 LDLIBS   += -lcudart -lnvToolsExt
 
@@ -68,7 +66,9 @@ NVCC_LDLIBS += -Xcompiler $(call join-list,$(NONCUDA_LDLIBS),$(COMMA))
 endif
 NVCC_LDLIBS += -lcuda -lnvToolsExt
 
-NVCCFLAGS += --generate-line-info -arch=compute_70 -g -O3
+GPU_ARCH ?=
+
+NVCCFLAGS += --generate-line-info $(GPU_ARCH) -g -O3
 ifdef DEBUG
 NVCCFLAGS += -g --device-debug
 endif
