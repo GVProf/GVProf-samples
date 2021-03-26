@@ -1,9 +1,8 @@
-CUDA_DIR = /scratch/opt/cuda-11.0.3/
-CUDA_LIB_DIR := $(CUDA_DIR)/lib64
-
 LOCAL_CC = gcc -g -O3 -Wall
-CC := $(CUDA_DIR)/bin/nvcc
-NVCCFLGAS = -g -O3 -lineinfo
+
+GPU_ARCH ?=
+
+NVCCFLGAS = $(GPU_ARCH) -g -O3 -lineinfo
 
 all : nn hurricane_gen
 

@@ -148,10 +148,10 @@ else ifneq ($(TARGET_ARCH),$(HOST_ARCH))
     endif
 endif
 HOST_COMPILER ?= g++
-NVCC          := $(CUDA_PATH)/bin/nvcc -ccbin $(HOST_COMPILER)
+NVCC          := nvcc -ccbin $(HOST_COMPILER)
 
 # internal flags
-NVCCFLAGS   := -m${TARGET_SIZE} -lineinfo -g -O2
+NVCCFLAGS   := -m${TARGET_SIZE}
 CCFLAGS     :=
 LDFLAGS     :=
 
@@ -248,23 +248,16 @@ LIBRARIES :=
 ################################################################################
 
 # Gencode arguments
-SMS ?= 70
+SMS ?= 30 35 37 50 52 60 61 70 75 80
 
 ifeq ($(SMS),)
 $(info >>> WARNING - no SM architectures have been specified - waiving sample <<<)
 SAMPLE_ENABLED := 0
 endif
 
-ifeq ($(GENCODE_FLAGS),)
-# Generate SASS code for each SM architecture listed in $(SMS)
-$(foreach sm,$(SMS),$(eval GENCODE_FLAGS += -gencode arch=compute_$(sm),code=sm_$(sm)))
+GPU_ARCH ?= 
 
-# Generate PTX code from the highest SM architecture in $(SMS) to guarantee forward-compatibility
-HIGHEST_SM := $(lastword $(sort $(SMS)))
-ifneq ($(HIGHEST_SM),)
-GENCODE_FLAGS += -gencode arch=compute_$(HIGHEST_SM),code=compute_$(HIGHEST_SM)
-endif
-endif
+GENCODE_FLAGS += $(GPU_ARCH)
 
 ifeq ($(SAMPLE_ENABLED),0)
 EXEC ?= @echo "[@]"

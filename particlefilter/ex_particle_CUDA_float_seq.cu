@@ -578,6 +578,7 @@ void videoSequence(unsigned char * I, int IszX, int IszY, int Nfr, int * seed) {
 
     /*dilate matrix*/
     unsigned char * newMatrix = (unsigned char *) malloc(sizeof (unsigned char) * IszX * IszY * Nfr);
+    memset(newMatrix, 0, IszY * IszX * Nfr * sizeof(unsigned char));
     imdilate_disk(I, IszX, IszY, Nfr, 5, newMatrix);
     int x, y;
     for (x = 0; x < IszX; x++) {
@@ -641,6 +642,7 @@ void particleFilter(unsigned char * I, int IszX, int IszY, int Nfr, int * seed, 
     int radius = 5;
     int diameter = radius * 2 - 1;
     int * disk = (int*) malloc(diameter * diameter * sizeof (int));
+    memset(disk, 0, sizeof(int) * diameter * diameter);
     strelDisk(disk, radius);
     int countOnes = 0;
     int x, y;

@@ -4,7 +4,7 @@
 // read: single value-0 (50 % access)
 // write: single value-1 (50 %access)
 __global__
-void op1(double *p, size_t N) {
+void op1(float *p, size_t N) {
   size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < N / 2) {
     p[idx] = p[idx] + 1;
@@ -13,7 +13,7 @@ void op1(double *p, size_t N) {
 
 // zero value (25% access)
 __global__
-void op2(double *p, size_t N) {
+void op2(float *p, size_t N) {
   size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < N / 4) {
     p[idx] = 0.0;
@@ -22,10 +22,10 @@ void op2(double *p, size_t N) {
 
 // approximate
 __global__
-void op3(double *p, size_t N) {
+void op3(float *p, size_t N) {
   size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < N / 2) {
-    p[idx] = 1.0 + idx / 10000000.0;
+    p[idx] = 1.0 + idx / 10000.0;
   }
 }
 
@@ -51,9 +51,9 @@ static const size_t N = 1000;
 static const int THREADS = 128;
 
 int main() {
-  double *p1;
-  cudaMalloc(&p1, N * sizeof(double));
-  cudaMemset(&p1, 0, N * sizeof(double));
+  float *p1;
+  cudaMalloc(&p1, N * sizeof(float));
+  cudaMemset(&p1, 0, N * sizeof(float));
 
   auto blocks = (N - 1) / THREADS + 1;
   op1<<<blocks, THREADS>>>(p1, N);
