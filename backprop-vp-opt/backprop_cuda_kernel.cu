@@ -78,7 +78,7 @@ bpnn_layerforward_CUDA(float *input_cuda,
 }
 
 
-__global__ void bpnn_adjust_weights_cuda2(float * delta,   
+__global__ void bpnn_adjust_weights_cuda(float * delta,   
 										 int hid,         
 										 float * ly,      
 										 int in,          
@@ -113,42 +113,6 @@ __global__ void bpnn_adjust_weights_cuda2(float * delta,
    if (ty == 0 && by ==0){
    w[index_x] += ((ETA * delta[index_x]) + (MOMENTUM * oldw[index_x]));
    oldw[index_x] = ((ETA * delta[index_x]) + (MOMENTUM * oldw[index_x]));
-   }
-}
-
-__global__ void bpnn_adjust_weights_cuda(
-										 int hid,         
-										 float * ly,      
-										 int in,          
-										 float * w,       
-										 float * oldw)  									
-{
-  
-  
-   int by = blockIdx.y;
-
-   int tx = threadIdx.x;
-   int ty = threadIdx.y;
-	
-   int index =  ( hid + 1 ) * HEIGHT * by + ( hid + 1 ) * ty + tx + 1 + ( hid + 1 ) ;  
-   int index_y = HEIGHT * by + ty + 1;
-   int index_x = tx + 1;
-   //eta = 0.3;
-   //momentum = 0.3;
-
-   float ww = oldw[index];
-
-   if (ww == 0) {
-   } else {
-     w[index] += (MOMENTUM * ww);
-     oldw[index] = (MOMENTUM * ww);
-   }
-
-   __syncthreads();
-
-   if (ty == 0 && by ==0){
-     w[index_x] += MOMENTUM * oldw[index_x];
-     oldw[index_x] = MOMENTUM * oldw[index_x];
    }
 }
 
