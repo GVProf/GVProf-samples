@@ -1,0 +1,17 @@
+diff --git a/Src/AmrCore/AMReX_Interp_2D_C.H b/Src/AmrCore/AMReX_Interp_2D_C.H
+index 091cf098f..15c773543 100644
+--- a/Src/AmrCore/AMReX_Interp_2D_C.H
++++ b/Src/AmrCore/AMReX_Interp_2D_C.H
+@@ -341,8 +341,10 @@ cellconslin_slopes_mmlim (Box const& bx, Array4<Real> const& slopes,
+                         a = amrex::min(a, alpha(ii+ioff,jj+joff,0,n));
+                     }
+                 }
+-                slopes(i,j,0,n      ) *= a;
+-                slopes(i,j,0,n+ncomp) *= a;
++                if (a != 1.0) {
++                  slopes(i,j,0,n      ) *= a;
++                  slopes(i,j,0,n+ncomp) *= a;
++                }
+             }
+         }
+     }
