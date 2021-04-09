@@ -26,6 +26,7 @@ all:
 	cd huffman-vp-opt; make;  cd ..; \
 	cd interval_merge; make; cd ..; \
 	cd lavaMD; make; cd ..; \
+	cd lavaMD-vp-opt; make; cd ..; \
 	cd lud; make; cd ..; \
 	cd nn; make; cd ..; \
 	cd nw; make; cd ..; \
@@ -85,6 +86,7 @@ clean:
 	cd huffman-vp-opt; make clean;  cd ..; \
 	cd interval_merge; make clean; cd ..; \
 	cd lavaMD; make clean; cd ..; \
+	cd lavaMD-vp-opt; make clean; cd ..; \
 	cd lud; make clean; cd ..;  \
 	cd nn; make clean; cd ..; \
 	cd nw; make clean; cd ..; \

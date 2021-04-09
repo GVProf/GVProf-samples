@@ -1,0 +1,119 @@
+diff --git a/src/CudaComputeNonbonded.C b/src/CudaComputeNonbonded.C
+index 89bce3f9..8110f1ab 100644
+--- a/src/CudaComputeNonbonded.C
++++ b/src/CudaComputeNonbonded.C
+@@ -113,7 +113,7 @@ CudaComputeNonbonded::~CudaComputeNonbonded() {
+   // fprintf(stderr, "Pe %d calling destructor ", CkMyPe());
+   cudaCheck(cudaSetDevice(deviceID));
+ 	if (exclusionsByAtom != NULL) delete [] exclusionsByAtom;
+-  if (vdwTypes != NULL) deallocate_host<int>(&vdwTypes);
++  if (vdwTypes != NULL) deallocate_host<uint8_t>(&vdwTypes);
+   if (exclIndexMaxDiff != NULL) deallocate_host<int2>(&exclIndexMaxDiff);
+   if (atoms != NULL) deallocate_host<CudaAtom>(&atoms);
+   if (part != NULL) deallocate_host<char>(&part);
+@@ -792,7 +792,7 @@ void CudaComputeNonbonded::updateVdwTypesExclSubset(int first, int last) {
+ //
+ void CudaComputeNonbonded::updateVdwTypesExcl() {
+   // Re-allocate (VdwTypes, exclIndexMaxDiff) as needed
+-  reallocate_host<int>(&vdwTypes, &vdwTypesSize, atomStorageSize, 1.4f);
++  reallocate_host<uint8_t>(&vdwTypes, &vdwTypesSize, atomStorageSize, 1.4f);
+   reallocate_host<int2>(&exclIndexMaxDiff, &exclIndexMaxDiffSize, atomStorageSize, 1.4f);
+   reallocate_host<int>(&atomIndex, &atomIndexSize, atomStorageSize, 1.4f);
+   if (doAlch) reallocate_host<char>(&part, &partSize, atomStorageSize, 1.4f);
+diff --git a/src/CudaComputeNonbonded.h b/src/CudaComputeNonbonded.h
+index 6a20058d..576ae1b6 100644
+--- a/src/CudaComputeNonbonded.h
++++ b/src/CudaComputeNonbonded.h
+@@ -105,7 +105,7 @@ private:
+ 
+   // VdW-types
+   // Pinned host memory
+-  int* vdwTypes;
++  uint8_t* vdwTypes;
+   int vdwTypesSize;
+ 
+   // Maximum number of tiles per tile list
+diff --git a/src/CudaComputeNonbondedKernel.cu b/src/CudaComputeNonbondedKernel.cu
+index 3f3097e6..eb9a2656 100644
+--- a/src/CudaComputeNonbondedKernel.cu
++++ b/src/CudaComputeNonbondedKernel.cu
+@@ -468,7 +468,7 @@ nonbondedForceKernel(
+   const int start, const int numTileLists,
+   const TileList* __restrict__ tileLists, TileExcl* __restrict__ tileExcls,
+   const int* __restrict__ tileJatomStart,
+-  const int vdwCoefTableWidth, const float2* __restrict__ vdwCoefTable, const int* __restrict__ vdwTypes,
++  const int vdwCoefTableWidth, const float2* __restrict__ vdwCoefTable, const uint8_t* __restrict__ vdwTypes,
+   const float3 lata, const float3 latb, const float3 latc,
+   const float4* __restrict__ xyzq, const float cutoff2,
+   cudaTextureObject_t vdwCoefTableTex,
+@@ -685,7 +685,7 @@ nonbondedForceKernel(
+           if (WARP_ALL(WARP_FULL_MASK, r2bb > plcutoff2)) continue;
+         }
+         unsigned int excl = (doPairlist) ? 0 : tileExcls[jtile].excl[wid];
+-        int vdwtypej = vdwTypes[jatomStart + wid];
++        uint8_t vdwtypej = vdwTypes[jatomStart + wid];
+         s_vdwtypej[iwarp][wid] = vdwtypej;
+ 
+         // Get i-atom global index
+@@ -1504,7 +1504,7 @@ CudaComputeNonbondedKernel::~CudaComputeNonbondedKernel() {
+   if (overflowExclusions != NULL) deallocate_device<unsigned int>(&overflowExclusions);
+   if (exclIndexMaxDiff != NULL) deallocate_device<int2>(&exclIndexMaxDiff);
+   if (atomIndex != NULL) deallocate_device<int>(&atomIndex);
+-  if (vdwTypes != NULL) deallocate_device<int>(&vdwTypes);
++  if (vdwTypes != NULL) deallocate_device<uint8_t>(&vdwTypes);
+   if (patchNumCount != NULL) deallocate_device<unsigned int>(&patchNumCount);
+   if (patchReadyQueue != NULL) deallocate_host<int>(&patchReadyQueue);
+ #if 0
+@@ -1521,14 +1521,14 @@ CudaComputeNonbondedKernel::~CudaComputeNonbondedKernel() {
+ #endif
+ }
+ 
+-void CudaComputeNonbondedKernel::updateVdwTypesExcl(const int atomStorageSize, const int* h_vdwTypes,
++void CudaComputeNonbondedKernel::updateVdwTypesExcl(const int atomStorageSize, const uint8_t* h_vdwTypes,
+   const int2* h_exclIndexMaxDiff, const int* h_atomIndex, cudaStream_t stream) {
+ 
+-  reallocate_device<int>(&vdwTypes, &vdwTypesSize, atomStorageSize, OVERALLOC);
++  reallocate_device<uint8_t>(&vdwTypes, &vdwTypesSize, atomStorageSize, OVERALLOC);
+   reallocate_device<int2>(&exclIndexMaxDiff, &exclIndexMaxDiffSize, atomStorageSize, OVERALLOC);
+   reallocate_device<int>(&atomIndex, &atomIndexSize, atomStorageSize, OVERALLOC);
+ 
+-  copy_HtoD<int>(h_vdwTypes, vdwTypes, atomStorageSize, stream);
++  copy_HtoD<uint8_t>(h_vdwTypes, vdwTypes, atomStorageSize, stream);
+   copy_HtoD<int2>(h_exclIndexMaxDiff, exclIndexMaxDiff, atomStorageSize, stream);
+   copy_HtoD<int>(h_atomIndex, atomIndex, atomStorageSize, stream);
+ }
+diff --git a/src/CudaComputeNonbondedKernel.h b/src/CudaComputeNonbondedKernel.h
+index 15f059cd..20286314 100644
+--- a/src/CudaComputeNonbondedKernel.h
++++ b/src/CudaComputeNonbondedKernel.h
+@@ -61,7 +61,7 @@ private:
+   int atomIndexSize;
+ 
+   // VdW types
+-  int* vdwTypes;
++  uint8_t* vdwTypes;
+   int vdwTypesSize;
+ 
+   unsigned int* patchNumCount;
+@@ -78,7 +78,7 @@ public:
+   CudaComputeNonbondedKernel(int deviceID, CudaNonbondedTables& cudaNonbondedTables, bool doStreaming);
+   ~CudaComputeNonbondedKernel();
+ 
+-  void updateVdwTypesExcl(const int atomStorageSize, const int* h_vdwTypes,
++  void updateVdwTypesExcl(const int atomStorageSize, const uint8_t* h_vdwTypes,
+     const int2* h_exclIndexMaxDiff, const int* h_atomIndex, cudaStream_t stream);
+ 
+   void nonbondedForce(CudaTileListKernel& tlKernel,
+diff --git a/src/alanin b/src/alanin
+index 36e240d2..e1b25420 100644
+--- a/src/alanin
++++ b/src/alanin
+@@ -1,7 +1,7 @@
+ # This is a test namd configuration file
+ 
+ timestep	0.5
+-numsteps	9
++numsteps	1000
+ structure	alanin.psf
+ parameters	alanin.params
+ coordinates	alanin.pdb
