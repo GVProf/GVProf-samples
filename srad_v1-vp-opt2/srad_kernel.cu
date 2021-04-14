@@ -3,8 +3,6 @@
 
 // srad kernel
 __global__ void srad(fp d_lambda, int d_Nr, int d_Nc, long d_Ne, 
-// int16_t *d_iN,
-//                      int16_t *d_iS, int16_t *d_jE, int16_t *d_jW, 
                      fp *d_dN, fp *d_dS,
                      fp *d_dE, fp *d_dW, fp d_q0sqr, fp *d_c, fp *d_I)
 {
@@ -33,26 +31,26 @@ __global__ void srad(fp d_lambda, int d_Nr, int d_Nc, long d_Ne,
 
 
     if (ei < d_Ne) { // make sure that only threads matching jobs run
-    if(row == 0) {
-        iN = 0;
-    }else{
-        iN = row -1;
-    }
-    if(row == d_Nr -1){
-        iS = d_Nr -1;
-    }else{
-        iS = row+1;
-    }
-    if(col ==0){
-        jW = 0;
-    }else{
-        jW =col -1;
-    }
-    if(col == d_Nc -1){
-        jE = d_Nc - 1;
-    }else{
-        jE = col +1;
-    }
+        if(row == 0) {
+            iN = 0;
+        }else{
+            iN = row -1;
+        }
+        if(row == d_Nr -1){
+            iS = d_Nr -1;
+        }else{
+            iS = row+1;
+        }
+        if(col ==0){
+            jW = 0;
+        }else{
+            jW =col -1;
+        }
+        if(col == d_Nc -1){
+            jE = d_Nc - 1;
+        }else{
+            jE = col +1;
+        }
 
         // directional derivatives, ICOV, diffusion coefficent
         d_Jc = d_I[ei]; // get value of the current element
