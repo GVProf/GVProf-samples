@@ -9,7 +9,7 @@ recursiveGaussian/recursiveGaussian
 srad_v1/srad
 srad_v1/image_out.pgm
 srad_v2/srad
-srad_v1_opt/srad
+srad_v1_opt*/srad
 backprop/backprop
 cfd/euler3d
 cfd/euler3d_double
