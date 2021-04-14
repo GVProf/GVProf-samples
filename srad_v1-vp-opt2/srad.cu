@@ -203,21 +203,21 @@ int main(int argc, char *argv[]) {
     jE = (int16_t *)malloc(mem_size_j); // east surrounding element
 
     // N/S/W/E indices of surrounding pixels (every element of IMAGE)
-    for (i = 0; i < Nr; i++) {
-        iN[i] = i - 1; // holds index of IMAGE row above
-        iS[i] = i + 1; // holds index of IMAGE row below
-    }
-    for (j = 0; j < Nc; j++) {
-        jW[j] = j - 1; // holds index of IMAGE column on the left
-        jE[j] = j + 1; // holds index of IMAGE column on the right
-    }
+    // for (i = 0; i < Nr; i++) {
+    //     iN[i] = i - 1; // holds index of IMAGE row above
+    //     iS[i] = i + 1; // holds index of IMAGE row below
+    // }
+    // for (j = 0; j < Nc; j++) {
+    //     jW[j] = j - 1; // holds index of IMAGE column on the left
+    //     jE[j] = j + 1; // holds index of IMAGE column on the right
+    // }
 
     // N/S/W/E boundary conditions, fix surrounding indices outside boundary of
     // image
-    iN[0] = 0;           // changes IMAGE top row index from -1 to 0
-    iS[Nr - 1] = Nr - 1; // changes IMAGE bottom row index from Nr to Nr-1
-    jW[0] = 0;           // changes IMAGE leftmost column index from -1 to 0
-    jE[Nc - 1] = Nc - 1; // changes IMAGE rightmost column index from Nc to Nc-1
+    // iN[0] = 0;           // changes IMAGE top row index from -1 to 0
+    // iS[Nr - 1] = Nr - 1; // changes IMAGE bottom row index from Nr to Nr-1
+    // jW[0] = 0;           // changes IMAGE leftmost column index from -1 to 0
+    // jE[Nc - 1] = Nc - 1; // changes IMAGE rightmost column index from Nc to Nc-1
 
     //================================================================================80
     // 	GPU SETUP
@@ -229,14 +229,14 @@ int main(int argc, char *argv[]) {
     cudaMalloc((void **)&d_I, mem_size); //
 
     // allocate memory for coordinates on DEVICE
-    cudaMalloc((void **)&d_iN, mem_size_i);                   //
-    cudaMemcpy(d_iN, iN, mem_size_i, cudaMemcpyHostToDevice); //
-    cudaMalloc((void **)&d_iS, mem_size_i);                   //
-    cudaMemcpy(d_iS, iS, mem_size_i, cudaMemcpyHostToDevice); //
-    cudaMalloc((void **)&d_jE, mem_size_j);                   //
-    cudaMemcpy(d_jE, jE, mem_size_j, cudaMemcpyHostToDevice); //
-    cudaMalloc((void **)&d_jW, mem_size_j);                   //
-    cudaMemcpy(d_jW, jW, mem_size_j, cudaMemcpyHostToDevice); //
+    // cudaMalloc((void **)&d_iN, mem_size_i);                   //
+    // cudaMemcpy(d_iN, iN, mem_size_i, cudaMemcpyHostToDevice); //
+    // cudaMalloc((void **)&d_iS, mem_size_i);                   //
+    // cudaMemcpy(d_iS, iS, mem_size_i, cudaMemcpyHostToDevice); //
+    // cudaMalloc((void **)&d_jE, mem_size_j);                   //
+    // cudaMemcpy(d_jE, jE, mem_size_j, cudaMemcpyHostToDevice); //
+    // cudaMalloc((void **)&d_jW, mem_size_j);                   //
+    // cudaMemcpy(d_jW, jW, mem_size_j, cudaMemcpyHostToDevice); //
 
     // allocate memory for partial sums on DEVICE
     cudaMalloc((void **)&d_sums, mem_size);  //
@@ -361,10 +361,10 @@ int main(int argc, char *argv[]) {
                                   Nr,     // # of rows in input image
                                   Nc,     // # of columns in input image
                                   Ne,     // # of elements in input image
-                                  d_iN,   // indices of North surrounding pixels
-                                  d_iS,   // indices of South surrounding pixels
-                                  d_jE,   // indices of East surrounding pixels
-                                  d_jW,   // indices of West surrounding pixels
+                                //   d_iN,   // indices of North surrounding pixels
+                                //   d_iS,   // indices of South surrounding pixels
+                                //   d_jE,   // indices of East surrounding pixels
+                                //   d_jW,   // indices of West surrounding pixels
                                   d_dN,   // North derivative
                                   d_dS,   // South derivative
                                   d_dW,   // West derivative
@@ -380,10 +380,10 @@ int main(int argc, char *argv[]) {
                                    Nr,     // # of rows in input image
                                    Nc,     // # of columns in input image
                                    Ne,     // # of elements in input image
-                                   d_iN, // indices of North surrounding pixels
-                                   d_iS, // indices of South surrounding pixels
-                                   d_jE, // indices of East surrounding pixels
-                                   d_jW, // indices of West surrounding pixels
+                                //    d_iN, // indices of North surrounding pixels
+                                //    d_iS, // indices of South surrounding pixels
+                                //    d_jE, // indices of East surrounding pixels
+                                //    d_jW, // indices of West surrounding pixels
                                    d_dN, // North derivative
                                    d_dS, // South derivative
                                    d_dW, // West derivative
@@ -432,17 +432,17 @@ int main(int argc, char *argv[]) {
 
     free(image_ori);
     free(image);
-    free(iN);
-    free(iS);
-    free(jW);
-    free(jE);
+    // free(iN);
+    // free(iS);
+    // free(jW);
+    // free(jE);
 
     cudaFree(d_I);
     cudaFree(d_c);
-    cudaFree(d_iN);
-    cudaFree(d_iS);
-    cudaFree(d_jE);
-    cudaFree(d_jW);
+    // cudaFree(d_iN);
+    // cudaFree(d_iS);
+    // cudaFree(d_jE);
+    // cudaFree(d_jW);
     cudaFree(d_dN);
     cudaFree(d_dS);
     cudaFree(d_dE);

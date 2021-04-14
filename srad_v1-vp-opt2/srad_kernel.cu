@@ -2,8 +2,10 @@
 // ACCESS
 
 // srad kernel
-__global__ void srad(fp d_lambda, int d_Nr, int d_Nc, long d_Ne, int16_t *d_iN,
-                     int16_t *d_iS, int16_t *d_jE, int16_t *d_jW, fp *d_dN, fp *d_dS,
+__global__ void srad(fp d_lambda, int d_Nr, int d_Nc, long d_Ne, 
+// int16_t *d_iN,
+//                      int16_t *d_iS, int16_t *d_jE, int16_t *d_jW, 
+                     fp *d_dN, fp *d_dS,
                      fp *d_dE, fp *d_dW, fp d_q0sqr, fp *d_c, fp *d_I)
 {
 
@@ -13,7 +15,7 @@ __global__ void srad(fp d_lambda, int d_Nr, int d_Nc, long d_Ne, int16_t *d_iN,
     int ei = bx * NUMBER_THREADS + tx; // more threads than actual elements !!!
     int row;                           // column, x position
     int col;                           // row, y position
-
+    int iN, iS, jW, jE;
     // variables
     fp d_Jc;
     fp d_dN_loc, d_dS_loc, d_dW_loc, d_dE_loc;
@@ -28,7 +30,29 @@ __global__ void srad(fp d_lambda, int d_Nr, int d_Nc, long d_Ne, int16_t *d_iN,
         col = col - 1;
     }
 
+
+
     if (ei < d_Ne) { // make sure that only threads matching jobs run
+    if(row == 0) {
+        iN = 0;
+    }else{
+        iN = row -1;
+    }
+    if(row == d_Nr -1){
+        iS = d_Nr -1;
+    }else{
+        iS = row+1;
+    }
+    if(col ==0){
+        jW = 0;
+    }else{
+        jW =col -1;
+    }
+    if(col == d_Nc -1){
+        jE = d_Nc - 1;
+    }else{
+        jE = col +1;
+    }
 
         // directional derivatives, ICOV, diffusion coefficent
         d_Jc = d_I[ei]; // get value of the current element
@@ -36,13 +60,13 @@ __global__ void srad(fp d_lambda, int d_Nr, int d_Nc, long d_Ne, int16_t *d_iN,
         // directional derivates (every element of IMAGE)(try to copy to shared
         // memory or temp files)
         d_dN_loc =
-            d_I[d_iN[row] + d_Nr * col] - d_Jc; // north direction derivative
+            d_I[iN + d_Nr * col] - d_Jc; // north direction derivative
         d_dS_loc =
-            d_I[d_iS[row] + d_Nr * col] - d_Jc; // south direction derivative
+            d_I[iS + d_Nr * col] - d_Jc; // south direction derivative
         d_dW_loc =
-            d_I[row + d_Nr * d_jW[col]] - d_Jc; // west direction derivative
+            d_I[row + d_Nr * jW] - d_Jc; // west direction derivative
         d_dE_loc =
-            d_I[row + d_Nr * d_jE[col]] - d_Jc; // east direction derivative
+            d_I[row + d_Nr * jE] - d_Jc; // east direction derivative
 
         // normalized discrete gradient mag squared (equ 52,53)
         d_G2 = (d_dN_loc * d_dN_loc + d_dS_loc * d_dS_loc +

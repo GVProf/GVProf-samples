@@ -2,8 +2,10 @@
 // CORRUPTION
 
 // srad kernel
-__global__ void srad2(fp d_lambda, int d_Nr, int d_Nc, long d_Ne, int16_t *d_iN,
-                      int16_t *d_iS, int16_t *d_jE, int16_t *d_jW, fp *d_dN, fp *d_dS,
+__global__ void srad2(fp d_lambda, int d_Nr, int d_Nc, long d_Ne, 
+// int16_t *d_iN,
+//                       int16_t *d_iS, int16_t *d_jE, int16_t *d_jW, 
+                      fp *d_dN, fp *d_dS,
                       fp *d_dE, fp *d_dW, fp *d_c, fp *d_I)
 {
 
@@ -28,11 +30,32 @@ __global__ void srad2(fp d_lambda, int d_Nr, int d_Nc, long d_Ne, int16_t *d_iN,
 
     if (ei < d_Ne) { // make sure that only threads matching jobs run
 
+    int iN, iS, jW, jE;
+    //     if(row == 0) {
+    //     iN = 0;
+    // }else{
+    //     iN = row -1;
+    // }
+    if(row == d_Nr -1){
+        iS = d_Nr -1;
+    }else{
+        iS = row+1;
+    }
+    // if(col ==0){
+    //     jW = 0;
+    // }else{
+    //     jW =col -1;
+    // }
+    if(col == d_Nc -1){
+        jE = d_Nc - 1;
+    }else{
+        jE = col +1;
+    }
         // diffusion coefficent
         d_cN = d_c[ei];                     // north diffusion coefficient
-        d_cS = d_c[d_iS[row] + d_Nr * col]; // south diffusion coefficient
+        d_cS = d_c[iS + d_Nr * col]; // south diffusion coefficient
         d_cW = d_c[ei];                     // west diffusion coefficient
-        d_cE = d_c[row + d_Nr * d_jE[col]]; // east diffusion coefficient
+        d_cE = d_c[row + d_Nr * jE]; // east diffusion coefficient
 
         // divergence (equ 58)
         d_D = d_cN * d_dN[ei] + d_cS * d_dS[ei] + d_cW * d_dW[ei] +
