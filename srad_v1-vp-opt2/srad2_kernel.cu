@@ -43,9 +43,9 @@ __global__ void srad2(fp d_lambda, int d_Nr, int d_Nc, long d_Ne,
     }
         // diffusion coefficent
         d_cN = d_c[ei];                     // north diffusion coefficient
-        d_cS = d_c[d_iS[row] + d_Nr * col]; // south diffusion coefficient
+        d_cS = d_c[iS + d_Nr * col]; // south diffusion coefficient
         d_cW = d_c[ei];                     // west diffusion coefficient
-        d_cE = d_c[row + d_Nr * d_jE[col]]; // east diffusion coefficient
+        d_cE = d_c[row + d_Nr * jE]; // east diffusion coefficient
         // divergence (equ 58)
         d_D = d_cN * d_dN[ei] + d_cS * d_dS[ei] + d_cW * d_dW[ei] +
               d_cE * d_dE[ei]; // divergence
