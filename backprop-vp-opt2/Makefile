@@ -8,7 +8,7 @@ GPU_ARCH ?=
 NVCC_FLAGS = -lineinfo $(GPU_ARCH) -g -O3
 
 backprop: backprop.o facetrain.o imagenet.o backprop_cuda.o 
-	$(CC) $(CC_FLAGS) backprop.o facetrain.o imagenet.o backprop_cuda.o -o backprop -lcuda -lcudart -lm
+	$(NVCC) $(CC_FLAGS) backprop.o facetrain.o imagenet.o backprop_cuda.o -o backprop -lcuda -lcudart -lm
 
 %.o: %.[ch]
 	$(CC) $(CC_FLAGS) $< -c
