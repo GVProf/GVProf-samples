@@ -739,7 +739,6 @@ void core_kernel_loop(int sel_device, int buffer, gap_opt_t *opt, bwa_seqio_t *k
 		report_cuda_error_GPU("[core] Error allocating cuda memory for \"global_alignment_meta_device\".");
 		cudaMalloc((void**)&global_alns_device, MAX_NO_PARTIAL_HITS*(1ul<<(buffer-3))*sizeof(barracuda_aln1_t));
 		report_cuda_error_GPU("[core] Error allocating cuda memory for \"global_alns_device\".");
-    cudaMemset(global_alns_device, 0, MAX_NO_PARTIAL_HITS*(1ul<<(buffer-3))*sizeof(barracuda_aln1_t));
 		cudaMalloc((void**)&global_init_device, (1ul<<(buffer-3))*sizeof(init_info_t));
 		report_cuda_error_GPU("[core] Error allocating cuda memory for \"global_init_device\".");
 		cudaMalloc((void**)&global_w_b_device, (1ul<<(buffer-3))*sizeof(widths_bids_t));
@@ -1095,7 +1094,6 @@ void core_kernel_loop(int sel_device, int buffer, gap_opt_t *opt, bwa_seqio_t *k
 			report_cuda_error_GPU("[aln_core] Error reading \"global_alignment_meta_host\" from GPU.");
 			int max_no_partial_hits = (!split_loop_count ? MAX_NO_SEEDING_PARTIALS : MAX_NO_REGULAR_PARTIALS);
 			cudaMemcpy(global_alns_host, global_alns_device, max_no_partial_hits*no_to_process*sizeof(barracuda_aln1_t), cudaMemcpyDeviceToHost);
-      cudaMemset(global_alns_device, 0, max_no_partial_hits*no_to_process*sizeof(barracuda_aln1_t));
 			report_cuda_error_GPU("[aln_core] Error reading \"global_alns_host\" from GPU.");
 			cudaDeviceSynchronize();
 			report_cuda_error_GPU("[aln_core] cuda error_3.");
