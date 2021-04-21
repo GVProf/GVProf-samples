@@ -871,6 +871,8 @@ __global__ void cuda_inexact_match_caller(uint32_t * global_bwt, int no_of_seque
     for (int i = 0; i < max_no_partial_hits; ++i) {
       if (hits[i]) {
         *(global_alns + blockId * max_no_partial_hits + i) = local_alns[i];
+      } else {
+        *(global_alns + blockId * max_no_partial_hits + i) = barracuda_aln1_t{};
       }
     }
 		//memcpy(global_alns + blockId*max_no_partial_hits, local_alns, max_no_partial_hits*sizeof(barracuda_aln1_t));
