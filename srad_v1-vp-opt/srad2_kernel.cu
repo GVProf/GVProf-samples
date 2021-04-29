@@ -4,7 +4,7 @@
 // srad kernel
 __global__ void srad2(fp d_lambda, int d_Nr, int d_Nc, long d_Ne, fp *d_dN, fp *d_dS,
                       fp *d_dE, fp *d_dW, 
-                      fp *d_c, 
+                      bool *d_c, 
                       fp *d_I) {
 
     // indexes
@@ -15,7 +15,7 @@ __global__ void srad2(fp d_lambda, int d_Nr, int d_Nc, long d_Ne, fp *d_dN, fp *
     int col;                           // row, y position
 
     // variables
-    fp d_cN, d_cS, d_cW, d_cE;
+    bool d_cN, d_cS, d_cW, d_cE;
     fp d_D;
 
     // figure out row/col location in new matrix

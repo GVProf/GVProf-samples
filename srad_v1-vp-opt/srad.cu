@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
     fp *d_dW;
     fp *d_dE;
     fp *d_I; // input IMAGE on DEVICE
-    fp *d_c;
+    bool *d_c;
 
     time1 = get_time();
 
@@ -217,8 +217,7 @@ int main(int argc, char *argv[]) {
     cudaMalloc((void **)&d_dE, mem_size); //
 
     // allocate memory for coefficient on DEVICE
-    cudaMalloc((void **)&d_c, mem_size); //
-    cuMemsetD32((CUdeviceptr)d_c, 1, mem_size / sizeof(fp));
+    cudaMalloc((void **)&d_c, sizeof(bool) * Ne); //
 
     checkCUDAError("setup");
 

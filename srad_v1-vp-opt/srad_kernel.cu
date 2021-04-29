@@ -4,7 +4,7 @@
 // srad kernel
 __global__ void srad(fp d_lambda, int d_Nr, int d_Nc, long d_Ne, fp *d_dN, fp *d_dS,
                      fp *d_dE, fp *d_dW, fp d_q0sqr, 
-                     fp *d_c,
+                     bool *d_c,
                       fp *d_I) {
 
     // indexes
@@ -17,7 +17,7 @@ __global__ void srad(fp d_lambda, int d_Nr, int d_Nc, long d_Ne, fp *d_dN, fp *d
     // variables
     fp d_Jc;
     fp d_dN_loc, d_dS_loc, d_dW_loc, d_dE_loc;
-    fp d_c_loc;
+    bool d_c_loc;
     fp d_G2, d_L, d_num, d_den, d_qsqr;
 
     // figure out row/col location in new matrix
@@ -83,19 +83,19 @@ __global__ void srad(fp d_lambda, int d_Nr, int d_Nc, long d_Ne, fp *d_dN, fp *d
         // diffusion coefficent (equ 33) (every element of IMAGE)
         d_den = (d_qsqr - d_q0sqr) /
                 (d_q0sqr * (1 + d_q0sqr)); // den (based on qsqr and q0sqr)
-        d_c_loc = 1.0 / (1.0 + d_den); // diffusion coefficient (based on den)
+        if(d_den < -1 ){
+            d_c_loc = 0;
+        }else if(d_den >-1 && d_den <0){
+            d_c_loc = 1;
+        }
+        // d_c_loc = 1.0 / (1.0 + d_den); // diffusion coefficient (based on den)
 
         // save data to global memory
         d_dN[ei] = d_dN_loc;
         d_dS[ei] = d_dS_loc;
         d_dW[ei] = d_dW_loc;
         d_dE[ei] = d_dE_loc;
+        d_c[ei] = d_c_loc;
 
-        // saturate diffusion coefficent to 0-1 range
-        if (d_c_loc < 0.0) {        // if diffusion coefficient < 0
-            d_c[ei] = 0.0;
-        } else if (d_c_loc < 1.0) {
-            d_c[ei] = d_c_loc;
-        }
     }
 }
