@@ -1,3 +1,214 @@
+From fbb0cf35de5eb27268183a78582c98909cc0f39c Mon Sep 17 00:00:00 2001
+From: FindHao <find@findhao.net>
+Date: Thu, 10 Dec 2020 00:43:49 +0000
+Subject: [PATCH 1/3] remove redundant memory traffic
+
+---
+ src/convolutional_layer.c |  6 +++---
+ src/dark_cuda.c           | 18 ++++++++++++++++++
+ src/dark_cuda.h           |  1 +
+ 3 files changed, 22 insertions(+), 3 deletions(-)
+
+diff --git a/src/convolutional_layer.c b/src/convolutional_layer.c
+index 1d52dd1..7aa51c5 100644
+--- a/src/convolutional_layer.c
++++ b/src/convolutional_layer.c
+@@ -717,7 +717,7 @@ convolutional_layer make_convolutional_layer(int batch, int steps, int h, int w,
+             if (train) l.bias_updates_gpu = cuda_make_array(l.bias_updates, n);
+         }
+ 
+-        l.output_gpu = cuda_make_array(l.output, total_batch*out_h*out_w*n);
++        l.output_gpu = cuda_make_array_init2zero(total_batch*out_h*out_w*n);
+         if (train) l.delta_gpu = cuda_make_array(l.delta, total_batch*out_h*out_w*n);
+ 
+         if(binary){
+@@ -761,9 +761,9 @@ convolutional_layer make_convolutional_layer(int batch, int steps, int h, int w,
+             }
+ 
+             if (train) {
+-                l.x_gpu = cuda_make_array(l.output, total_batch*out_h*out_w*n);
++                l.x_gpu = cuda_make_array_init2zero(total_batch*out_h*out_w*n);
+ #ifndef CUDNN
+-                l.x_norm_gpu = cuda_make_array(l.output, total_batch*out_h*out_w*n);
++                l.x_norm_gpu = cuda_make_array_init2zero( total_batch*out_h*out_w*n);
+ #endif  // CUDNN
+             }
+         }
+diff --git a/src/dark_cuda.c b/src/dark_cuda.c
+index fec0647..a0339b2 100644
+--- a/src/dark_cuda.c
++++ b/src/dark_cuda.c
+@@ -380,6 +380,24 @@ float *cuda_make_array(float *x, size_t n)
+     return x_gpu;
+ }
+ 
++float *cuda_make_array_init2zero(size_t n) {
++  float *x_gpu;
++  size_t size = sizeof(float) * n;
++  cudaError_t status = cudaMalloc((void **)&x_gpu, size);
++  // cudaError_t status = cudaMallocManaged((void **)&x_gpu, size,
++  // cudaMemAttachGlobal); status = cudaMemAdvise(x_gpu, size,
++  // cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId);
++  if (status != cudaSuccess)
++    fprintf(stderr, " Try to set subdivisions=64 in your cfg-file. \n");
++  CHECK_CUDA(status);
++  // status = cudaMemcpy(x_gpu, x, size, cudaMemcpyHostToDevice);
++  status =cudaMemset(x_gpu, 0, size);
++  CHECK_CUDA(status);
++  if (!x_gpu)
++    error("Cuda malloc failed\n");
++  return x_gpu;
++}
++
+ void **cuda_make_array_pointers(void **x, size_t n)
+ {
+     void **x_gpu;
+diff --git a/src/dark_cuda.h b/src/dark_cuda.h
+index 0e5f39f..6fd7c78 100644
+--- a/src/dark_cuda.h
++++ b/src/dark_cuda.h
+@@ -64,6 +64,7 @@ extern "C" {
+     float *cuda_make_array_pinned_preallocated(float *x, size_t n);
+     float *cuda_make_array_pinned(float *x, size_t n);
+     float *cuda_make_array(float *x, size_t n);
++    float *cuda_make_array_init2zero(size_t n);
+     void **cuda_make_array_pointers(void **x, size_t n);
+     int *cuda_make_int_array(size_t n);
+ 	int *cuda_make_int_array_new_api(int *x, size_t n);
+-- 
+2.25.1
+
+
+From 95fc755db45bbd6e4c7306f3eef613e250076004 Mon Sep 17 00:00:00 2001
+From: FindHao <find@findhao.net>
+Date: Mon, 14 Dec 2020 21:53:22 +0000
+Subject: [PATCH 2/3] remove more uncessnary memory copy and change memset to
+ async
+
+---
+ src/dark_cuda.c   | 2 +-
+ src/route_layer.c | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/dark_cuda.c b/src/dark_cuda.c
+index a0339b2..d8e3e79 100644
+--- a/src/dark_cuda.c
++++ b/src/dark_cuda.c
+@@ -391,7 +391,7 @@ float *cuda_make_array_init2zero(size_t n) {
+     fprintf(stderr, " Try to set subdivisions=64 in your cfg-file. \n");
+   CHECK_CUDA(status);
+   // status = cudaMemcpy(x_gpu, x, size, cudaMemcpyHostToDevice);
+-  status =cudaMemset(x_gpu, 0, size);
++  status =cudaMemsetAsync(x_gpu, 0, size, 0);
+   CHECK_CUDA(status);
+   if (!x_gpu)
+     error("Cuda malloc failed\n");
+diff --git a/src/route_layer.c b/src/route_layer.c
+index 2e0699d..57574f1 100644
+--- a/src/route_layer.c
++++ b/src/route_layer.c
+@@ -34,8 +34,8 @@ route_layer make_route_layer(int batch, int n, int *input_layers, int *input_siz
+     l.forward_gpu = forward_route_layer_gpu;
+     l.backward_gpu = backward_route_layer_gpu;
+ 
+-    l.delta_gpu =  cuda_make_array(l.delta, outputs*batch);
+-    l.output_gpu = cuda_make_array(l.output, outputs*batch);
++    l.delta_gpu =  cuda_make_array_init2zero(outputs*batch);
++    l.output_gpu = cuda_make_array_init2zero(outputs*batch);
+     #endif
+     return l;
+ }
+-- 
+2.25.1
+
+
+From cce03b559d0a52a732db4e97365b86452258d3e8 Mon Sep 17 00:00:00 2001
+From: FindHao <yhao24@ncsu.edu>
+Date: Tue, 20 Apr 2021 10:23:28 -0400
+Subject: [PATCH 3/3] add another opt, remove fill_gpu
+
+---
+ Makefile                     | 24 +++++++++++-------------
+ src/convolutional_kernels.cu |  2 +-
+ src/upsample_layer.c         |  2 +-
+ 3 files changed, 13 insertions(+), 15 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 5fb7054..1e01d46 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,4 +1,4 @@
+-GPU=0
++GPU=1
+ CUDNN=0
+ CUDNN_HALF=0
+ OPENCV=0
+@@ -17,10 +17,6 @@ ZED_CAMERA_v2_8=0
+ USE_CPP=0
+ DEBUG=0
+ 
+-ARCH= -gencode arch=compute_35,code=sm_35 \
+-      -gencode arch=compute_50,code=[sm_50,compute_50] \
+-      -gencode arch=compute_52,code=[sm_52,compute_52] \
+-	    -gencode arch=compute_61,code=[sm_61,compute_61]
+ 
+ OS := $(shell uname)
+ 
+@@ -37,7 +33,7 @@ OS := $(shell uname)
+ # ARCH= -gencode arch=compute_70,code=[sm_70,compute_70]
+ 
+ # GeForce RTX 2080 Ti, RTX 2080, RTX 2070, Quadro RTX 8000, Quadro RTX 6000, Quadro RTX 5000, Tesla T4, XNOR Tensor Cores
+-# ARCH= -gencode arch=compute_75,code=[sm_75,compute_75]
++ARCH= -gencode arch=compute_75,code=[sm_75,compute_75]
+ 
+ # Jetson XAVIER
+ # ARCH= -gencode arch=compute_72,code=[sm_72,compute_72]
+@@ -78,7 +74,9 @@ NVCC=nvcc
+ OPTS=-Ofast
+ LDFLAGS= -lm -pthread
+ COMMON= -Iinclude/ -I3rdparty/stb/include
+-CFLAGS=-Wall -Wfatal-errors -Wno-unused-result -Wno-unknown-pragmas -fPIC
++CFLAGS=-Wall -Wfatal-errors -Wno-unused-result -Wno-unknown-pragmas -fPIC -g
++NVCCFLAGS= -lineinfo
++CUDA_PATH?=/usr/local/cuda
+ 
+ ifeq ($(DEBUG), 1)
+ #OPTS= -O0 -g
+@@ -114,20 +112,20 @@ LDFLAGS+= -lgomp
+ endif
+ 
+ ifeq ($(GPU), 1)
+-COMMON+= -DGPU -I/usr/local/cuda/include/
++COMMON+= -DGPU -I$(CUDA_PATH)/include/
+ CFLAGS+= -DGPU
+ ifeq ($(OS),Darwin) #MAC
+-LDFLAGS+= -L/usr/local/cuda/lib -lcuda -lcudart -lcublas -lcurand
++LDFLAGS+= -L$(CUDA_PATH)/lib -lcuda -lcudart -lcublas -lcurand
+ else
+-LDFLAGS+= -L/usr/local/cuda/lib64 -lcuda -lcudart -lcublas -lcurand
++LDFLAGS+= -L$(CUDA_PATH)/lib64 -lcuda -lcudart -lcublas -lcurand
+ endif
+ endif
+ 
+ ifeq ($(CUDNN), 1)
+ COMMON+= -DCUDNN
+ ifeq ($(OS),Darwin) #MAC
+-CFLAGS+= -DCUDNN -I/usr/local/cuda/include
+-LDFLAGS+= -L/usr/local/cuda/lib -lcudnn
++CFLAGS+= -DCUDNN -I$(CUDA_PATH)/include
++LDFLAGS+= -L$(CUDA_PATH)/lib -lcudnn
+ else
+ CFLAGS+= -DCUDNN -I/usr/local/cudnn/include
+ LDFLAGS+= -L/usr/local/cudnn/lib64 -lcudnn
+@@ -182,7 +180,7 @@ $(OBJDIR)%.o: %.cpp $(DEPS)
+ 	$(CPP) -std=c++11 $(COMMON) $(CFLAGS) -c $< -o $@
+ 
+ $(OBJDIR)%.o: %.cu $(DEPS)
+-	$(NVCC) $(ARCH) $(COMMON) --compiler-options "$(CFLAGS)" -c $< -o $@
++	$(NVCC) $(ARCH) $(COMMON) --compiler-options "$(CFLAGS)" $(NVCCFLAGS)  -c $< -o $@
+ 
+ $(OBJDIR):
+ 	mkdir -p $(OBJDIR)
 diff --git a/src/convolutional_kernels.cu b/src/convolutional_kernels.cu
 index b1aa4e6..e8e78ac 100644
 --- a/src/convolutional_kernels.cu
@@ -24,3 +235,6 @@ index 778f5b4..f3de7cf 100644
      if(l.reverse){
          upsample_gpu(l.output_gpu, l.out_w, l.out_h, l.c, l.batch, l.stride, 0, l.scale, state.input);
      }else{
+-- 
+2.25.1
+
