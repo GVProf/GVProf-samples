@@ -9,7 +9,7 @@ m = torch.nn.Embedding(200, 512, padding_idx=0).cuda()
 input = torch.randint(low=0, high=199, size=(50, 20), device=device)
 
 t = time.time()
-for i in range(20000):
+for i in range(201):
     output = m(input)
-print('time: {:.4f}s'.format(time.time() - t))
+print('time: {:.5f}s'.format(time.time() - t))
 

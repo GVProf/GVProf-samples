@@ -11,7 +11,7 @@ grad = torch.randn((1, 16, 106, 106, 106), device=device)
 output = torch.randn((1, 16, 106, 106, 106), device=device)
 
 t = time.time()
-for i in range(2000):
+for i in range(300):
     output = m(input)
     output.backward(grad)
-print('time: {:.4f}s'.format(time.time() - t))
+print('time: {:.4f}s'.format((time.time() - t) / 300))

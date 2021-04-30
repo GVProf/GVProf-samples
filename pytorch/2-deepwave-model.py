@@ -69,6 +69,7 @@ source_amplitudes_true = (deepwave.wavelets.ricker(freq, nt, dt, 1/freq)
                           .repeat(1, num_shots, num_sources_per_shot))
 
 # Load the true model
+# NOTE mode is available at https://drive.google.com/open?id=1ZRlpVneynKlm5g5zbKieq4jiv_z3UxEn
 model_true = (np.fromfile('SEAM_Vp_Elastic_N23900_chop.bin', np.float32)
               .reshape(ny, nz))
 model_true = np.transpose(model_true) # I prefer having depth direction first
@@ -147,6 +148,9 @@ for epoch in range(num_epochs):
     epoch_loss += loss.item()
     loss.backward()
     optimizer.step()
+# NOTE: for gvprof profiling purpose
+#    break
+#  break
   print('Epoch:', epoch, 'Loss: ', epoch_loss)
 t_end = time.time()
 print('Runtime:', t_end - t_start)

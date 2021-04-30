@@ -31,7 +31,7 @@ if torch.cuda.is_available():
     model.to('cuda')
 
 t = time.time()
-for i in range(1000):
+for i in range(100):
     with torch.no_grad():
         output = model(input_batch)
 # force a sync
