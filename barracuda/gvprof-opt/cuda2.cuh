@@ -26,463 +26,38 @@
 
 */
 
-/* (0.7.0) beta: 
- * WBL 22 Feb 2016 bugfix for reads of more than 127bp
-   ensure alignment_meta_t.pos and init_info_t.start_pos do not overflow 7bits
-  19 Jan 2016 WBL  Report error max_sequence_length > MAX_SEQUENCE_LENGTH and stop
-  24 Jun 2015 WBL  Fix cuda_alignment_core's use of copy_bwts_to_cuda_memory
-   7 May 2015 WBL  Reduce buffer and blocksize for SM_1x
-  26 Apr 2015 WBL  Add size_global_bwt
-  13 Mar 2015 YHBL Added K40 large buffer support (about 9 GB total usage).
-  13 Mar 2015 YHBL Clean up obsolete codes
-   4 Mar 2015 WBL print name of active GPU, remove individual cuda_inexact_match_caller times
-   1 Mar 2015 WBL disable __ldg unless Tesla K20 or later
-  27 Feb 2015 WBL remove bulk loopcount==0 debug
-  26 Feb 2015 WBL swap back from bwt_cuda_occ4.cuh to stub bwt_cuda_occ4()
-  25 Feb 2015 WBL skip r1.32, r1.33(sequence_shift81 perhaps do later?),
-r1.34(sequence_global), r1.35-43, apply r1.43(no nulls in properties.name),
-skip r1.45-46, apply r1.47-50(pad bwt to 16 int), 
-skip r1.51-55(many_blocks) r1.56(threads_per_sequence) skip r1.57
-skip r1.58-59(TotalCores, include helper_cuda.h)
-apply r1.60-63(d_mycache4, include read_mycache.cuh) skip r1.64
-skip r1.65-69(cache_threads, kl_split, kl_par)
-  29 Dec 2014 WBL Avoid binary files by removing nulls in properties.name
-  21 Feb 2015 WBL reduce volume of debug output
-  19 Feb 2015 WBL still no progress... have wound back to r1.89
-  try adding huge debug to each kernel launch
-  12 Feb 2015 WBL Add displaying timing info for cuda_inexact_match_caller
-  fix r1.85 performance problem with include bwt_cuda_occ4.cuh
-Split history barracuda_src.cu,v barracuda.cu,v
-  11 Feb 2015 WBL Add same_length to copy_sequences_to_cuda_memory
-  replaces r1.30 14 Dec 2014 WBL for direct_index force all sequences to be same length
-  Add stub bwt_cuda_occ4 add direct_sequence
-  move remaining cuda device code for cuda_split_inexact_match_caller etc to cuda2.cuh
-  10 Feb 2015 WBL Split history barracuda_src.cu,v barracuda.cu,v
-Re-apply r1.25 free kl_host/kl_device, size_t, remove bwtkl_t (now in barracuda.h),
-improve "[aln_debug] bwt loaded %lu bytes, <assert.h> include cuda.cuh
-  25 Nov 2014 WBL Re-enable cuda_find_exact_matches changes. Note where sequence matches exactly once no longer report other potential matches
-  21 Nov 2014 WBL disable cuda_find_exact_matches changes and add <<<>>> logging comments
-                  Add header to text .sai file
-  19 Nov 2014 WBL merge text and binary output, ie add stdout_aln_head stdout_barracuda_aln1
-                  Explicitly clear unused parts of alignment records in binary .sai output file
-  13 Nov 2014 WBL try re-enabling cuda_find_exact_matches
-  13 Nov 2014 WBL ensure check status of all host cuda calls
-  Ensure all kernels followed by cudaDeviceSynchronize so they can report asynchronous errors
+/* (0.7.0) beta: $Revision: 1.12 $
+  27 Feb 2015 WBL Remove all changes to cuda_dfs_match
+  25 Feb 2015 WBL Apply r1.55-62 scache_global_bwt
+  21 Feb 2015 WBL Apply r1.25 mycache only NOT sequence_global sequence_stride
+  redo r1.47 __align__ mycache
+  11 Feb 2015 WBL taken from barracuda.cu r1.82
+  Revert to r1.2 and provide old bwt_cuda_match_exact instead
 */
 
-#define PACKAGE_VERSION "0.7.0 beta $Revision: 1.112 $"
-#include <stdio.h>
-#include <unistd.h>
-#include <math.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/time.h>
-#include <time.h>
-#include <stdint.h>
-#include <assert.h>
-#include "bwtaln.h"
-#include "bwtgap.h"
-#include "utils.h"
-#include "barracuda.h"
 
-#define d_mycache4 const uint4* mycache0
-#define d_mycache8 const uint2* mycache0
-#define d_mycache16 const uint32_t* mycache0
-
-#define max_mycache 1
-#include "read_mycache.cuh"
-#undef max_mycache
-
-#undef d_mycache4
-#undef d_mycache8
-#undef d_mycache16
-
-#define d_mycache4 const uint4* mycache0
-#define d_mycache8 const uint2* mycache0
-#define d_mycache16 const uint32_t* mycache0,const uint32_t* mycache1
-
-#define max_mycache 2
-#include "read_mycache.cuh"
-#undef max_mycache
-
-#undef d_mycache4
-#undef d_mycache8
-#undef d_mycache16
-
-#define d_mycache4 const uint4* mycache0
-#define d_mycache8 const uint2* mycache0,const uint2* mycache1
-#define d_mycache16 const uint32_t* mycache0,const uint32_t* mycache1,const uint32_t* mycache2,const uint32_t* mycache3
-
-#define max_mycache 4
-#include "read_mycache.cuh"
-#undef max_mycache
-
-#undef d_mycache4
-#undef d_mycache8
-#undef d_mycache16
-
-#define d_mycache4 const uint4* mycache0,const uint4* mycache1
-#define d_mycache8 const uint2* mycache0,const uint2* mycache1,const uint2* mycache2,const uint2* mycache3
-#define d_mycache16 const uint32_t* mycache0,const uint32_t* mycache1,const uint32_t* mycache2,const uint32_t* mycache3,const uint32_t* mycache4,const uint32_t* mycache5,const uint32_t* mycache6,const uint32_t* mycache7
-
-#define max_mycache 8
-#include "read_mycache.cuh"
-#undef max_mycache
-
-#undef d_mycache4
-#undef d_mycache8
-#undef d_mycache16
-
-#define d_mycache4 const uint4* mycache0,const uint4* mycache1,const uint4* mycache2,const uint4* mycache3
-#define d_mycache8 const uint2* mycache0,const uint2* mycache1,const uint2* mycache2,const uint2* mycache3,const uint2* mycache4,const uint2* mycache5,const uint2* mycache6,const uint2* mycache7
-#define d_mycache16 const uint32_t* mycache0,const uint32_t* mycache1,const uint32_t* mycache2,const uint32_t* mycache3,const uint32_t* mycache4,const uint32_t* mycache5,const uint32_t* mycache6,const uint32_t* mycache7,const uint32_t* mycache8,const uint32_t* mycache9,const uint32_t* mycache10,const uint32_t* mycache11,const uint32_t* mycache12,const uint32_t* mycache13,const uint32_t* mycache14,const uint32_t* mycache15
-
-#define max_mycache 16
-#include "read_mycache.cuh"
-#undef max_mycache
-
-#undef d_mycache4
-#undef d_mycache8
-#undef d_mycache16
-
-#include "barracuda.cuh"
-
-///////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////
-
-// Performance switches
-#define BWT_2_OCC_ENABLE 0 // enable looking up of k and l in the same time for counting character occurrence (slower, so disable by default)
-#define BWT_TABLE_LOOKUP_ENABLE 1 // use lookup table when instead of counting character occurrence, (faster so enable by default)
-
-//The followings are settings for memory allocations and memory requirements
-#define MIN_MEM_REQUIREMENT 768 // minimal global memory requirement in (MiB).  Currently at 768MB
-#define CUDA_TESLA 2000 // enlarged workspace buffer. Currently at 2000MB will be halved if not enough mem available
-
-#define SEQUENCE_TABLE_SIZE_EXPONENTIAL 23// DO NOT CHANGE! buffer size in (2^)units for sequences and alignment storages (batch size)
-// Maximum exponential is up to 30 [~ 1  GBytes] for non-debug, non alignment
-// Maximum exponential is up to 26 [~ 128MBytes] for debug
-// Maximum exponential is up to 23 for alignment with 4GB RAM(default : 23)
-
-// how much debugging information shall the kernel output? kernel output only works for fermi and above
-#define DEBUG_LEVEL 0
-
-
-//Global variables for inexact match <<do not change>>
-#define STATE_M 0
-#define STATE_I 1
-#define STATE_D 2
-
-
-//macro was beyound comprehension
-inline void write_to_half_byte_array(unsigned char * array, const int index, const int data) {
-  const int wordindex = index>>3;
-  const int byteindex = wordindex*4 + ((index>>1) & 0x3);
-  if((index)&0x1) array[byteindex] = (array[byteindex]&0xF0) | (data &0x0F);
-  else            array[byteindex] = (array[byteindex]&0x0F) | (data<<4);
+__device__ inline unsigned int numbits(unsigned int i, unsigned char c)
+// with y of 32 bits which is a string sequence encoded with 2 bits per alphabet,
+// count the number of occurrence of c ( one pattern of 2 bits alphabet ) in y
+{
+	i = ((c&2)?i:~i)>>1&((c&1)?i:~i)&0x55555555;
+	i = (i&0x33333333)+(i>>2&0x33333333);
+	return((i+(i>>4)&0x0F0F0F0F)*0x01010101)>>24;
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////
-
-//CUDA global variables
-__device__ __constant__ bwt_t bwt_cuda;
-__device__ __constant__ bwt_t rbwt_cuda;
-__device__ __constant__ uint32_t* bwt_occ_array2;
-__device__ __constant__ gap_opt_t options_cuda;
-__device__ __constant__ int size_global_bwt; //number of int for bounds checking
-
-//Texture Maps
-// uint4 is used because the maximum width for CUDA texture bind of 1D memory is 2^27,
-// and uint4 the structure 4xinteger is x,y,z,w coordinates and is 16 bytes long,
-// therefore effectively there are 2^27x16bytes memory can be access = 2GBytes memory.
-//texture<uint4, 1, cudaReadModeElementType> bwt_occ_array;
-//texture<uint4, 1, cudaReadModeElementType> rbwt_occ_array;
-texture<unsigned int, 1, cudaReadModeElementType> sequences_array;
-texture<uint2, 1, cudaReadModeElementType> sequences_index_array;
-
-///////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////
-
-void report_cuda_error_GPU(const char *message)
+__device__ void bwt_cuda_device_calculate_width (uint32_t * global_bwt, unsigned char* sequence, unsigned int * widths, unsigned char * bids, unsigned short offset, unsigned short length)
+//Calculate bids and widths for worst case bound, returns widths[senquence length] and bids[sequence length]
 {
-	cudaError_t cuda_err = cudaGetLastError();
-
-	if(cudaSuccess != cuda_err)
-	{
-		fprintf(stderr,"%s\n",message);
-		fprintf(stderr,"%s\n", cudaGetErrorString(cuda_err));
-		exit(1);
-	}
-}
-
-void report_cuda_error_GPU(cudaError_t cuda_error, const char *message)
-{
-	if(cudaSuccess != cuda_error)
-	{
-		fprintf(stderr,"%s\n",message);
-		fprintf(stderr,"%s\n", cudaGetErrorString(cuda_error));
-		exit(1);
-	}
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////
-
-
-size_t copy_bwts_to_cuda_memory(const char * prefix, uint32_t ** bwt, 
-				const size_t mem_available, bwtint_t* seq_len)
-// bwt occurrence array to global and bind to texture, bwt structure to constant memory
-// this function only load part of the bwt for alignment only.  SA is not loaded.
-// mem available in MiB (not bytes)
-{
-	bwt_t * bwt_src;
-
-	#if DEBUG_LEVEL > 0
-	fprintf(stderr,"[aln_debug] mem left: %lu\n", mem_available);
-	#endif
-
-	//Original BWT
-	//Load bwt occurrence array from from disk
-	char *str = (char*)calloc(strlen(prefix) + 10, 1);
-	strcpy(str, prefix); strcat(str, ".bwt");
-	bwt_src = bwt_restore_bwt(str);
-	free(str);
-
-	const size_t size_read = bwt_src->bwt_size*sizeof(uint32_t);
-	#if DEBUG_LEVEL > 0
-			fprintf(stderr,"[aln_debug] bwt loaded %lu bytes to CPU \n", size_read);
-	#endif
-	const size_t mem_left = mem_available - size_read;
-	*seq_len = bwt_src->seq_len;
-
-	if(mem_left > 0)
-	{
-		//Allocate memory for bwt
-		const int bwt_size = (bwt_src->bwt_size + 15) & (~0xf); //ensure multiple of 16 ints
-		//printf("bwt_size %d padded to %d uint32_t for FIXED_MAX_global_bwt\n",bwt_src->bwt_size,bwt_size);
-		cudaMalloc((void**)bwt, bwt_size*sizeof(uint32_t));
-		report_cuda_error_GPU("[aln_core] Error allocating memory for \"bwt_occurrence array\".\n");
-		cudaMemset(&((*bwt)[bwt_size-16]), 0, 16*sizeof(uint32_t));
-		report_cuda_error_GPU("[aln_core] Error clearing padding in \"bwt_occurrence array\".\n");
-		//copy bwt occurrence array from host to device and dump the bwt to save CPU memory
-		cudaMemcpy (*bwt, bwt_src->bwt, bwt_src->bwt_size*sizeof(uint32_t), cudaMemcpyHostToDevice);
-		report_cuda_error_GPU("[aln_core] Error copying  \"bwt occurrence array\" to GPU.\n");
-
-		#if DEBUG_LEVEL > 0
-			fprintf(stderr,"[aln_debug] bwt loaded to GPU \n");
-			fprintf(stderr,"[aln_debug] bwtsize in MiB %u\n",(bwt_src->bwt_size*sizeof(uint32_t)) >>20);
-		#endif
-
-		//copy bwt structure data to constant memory bwt_cuda structure
-		cudaMemcpyToSymbol ( bwt_cuda, bwt_src, sizeof(bwt_t), 0, cudaMemcpyHostToDevice);
-		report_cuda_error_GPU("[aln_core] Error binding  \"bwt_src\" to bwt_cuda constant.\n");
-
-		//free bwt_src from memory
-		bwt_destroy(bwt_src);
-
-
-		assert(INT_MAX>= size_read/sizeof(int)); //signed int index used in device code
-		const int size = size_read/sizeof(int);
-		cudaMemcpyToSymbol (size_global_bwt, &size, sizeof(int), 0, cudaMemcpyHostToDevice);
-		report_cuda_error_GPU("[aln_core] Error copying to \"size_global_bwt\" constant.\n");
-	}
-	else
-	{
-		fprintf(stderr,"[aln_core] Not enough device memory to perform alignment.\n");
-		//free bwt_src from memory
-		bwt_destroy(bwt_src);
-		return 0;
-	}
-
-	#if DEBUG_LEVEL > 0
-	fprintf(stderr,"[aln_debug] bwt loaded, mem left: %lu \n", mem_left);
-	fprintf(stderr,"[aln_debug] copy_bwts_to_cuda_memory(%s,**bwt,%lu,*seq_len) returns %lu \n", 
-		prefix,mem_available,size_read);
-	#endif
-
-	return size_read;
-}
-
-void free_bwts_from_cuda_memory( unsigned int * bwt)
-{
-	if ( bwt != 0 )
-	{
-		//cudaUnbindTexture(bwt_occ_array);
-		cudaFree(bwt);
-	}
-}
-
-void swap(bwt_aln1_t *x, bwt_aln1_t *y)
-{
-   bwt_aln1_t temp;
-   temp = *x;
-   *x = *y;
-   *y = temp;
-}
-
-int choose_pivot(int i,int j)
-{
-   return((i+j) /2);
-}
-
-void aln_quicksort(bwt_aln1_t *aln, int m, int n)
-//This function sorts the alignment array from barracuda to make it compatible with SAMSE/SAMPE cores
-{
-	int key,i,j,k;
-
-	if (m < n)
-	{
-	      k = choose_pivot(m, n);
-	      swap(&aln[m],&aln[k]);
-	      key = aln[m].score;
-	      i = m+1;
-	      j = n;
-	      while(i <= j)
-	      {
-	         while((i <= n) && (aln[i].score <= key))
-	                i++;
-	         while((j >= m) && (aln[j].score > key))
-	                j--;
-	         if(i < j)
-	                swap(&aln[i],&aln[j]);
-	      }
-	      // swap two elements
-	      swap(&aln[m],&aln[j]);
-	      // recursively sort the lesser lists
-	      aln_quicksort(aln, m, j-1);
-	      aln_quicksort(aln, j+1, n);
-	 }
-}
-
-///new sorting and sequence input code
-
-
-//TODO starts here!!!!!!!!!!!
-
-void barracuda_sort_queries(bwa_seq_t *seqs, unsigned int *order)
-{
-	return;
-}
-
-inline void barracuda_seq_reverse(int len, char *seq)
-{
-	int i;
-	for (i = 0; i < len>>1; ++i) {
-			char tmp = seq[len-1-i];
-			seq[len-1-i] = seq[i]; seq[i] = tmp;
-	}
-}
-
-inline void  barracuda_write_to_half_byte_array(barracuda_query_array_t *seqs, unsigned char *half_byte_array, uint2 *main_sequences_index, int nseqs)
-{
-	int i, j = 0;
-	int start_pos = 0;
-
-	for (i = 0; i < nseqs; i++){
-		barracuda_query_array_t * p = seqs + i;
-		//moved from barracuda_read_seq.  Reason: sorting needed to be done from the back.
-		barracuda_seq_reverse(p->len, p->seq); // *IMPORTANT*: will be reversed back in bwa_refine_gapped()
-		main_sequences_index[i].x = start_pos;
-		main_sequences_index[i].y = p->len;
-		for (j = 0; j < p->len; j++)
-		{
-			//fprintf(stderr,"now writing at position %i, character %i\n", start_pos+j, p->seq[j] );
-			write_to_half_byte_array(half_byte_array,start_pos+j,p->seq[j]);
-		}
-		//printf("index: %i\n", start_pos);
-		start_pos += p->len;
-	}
-	return;
-}
-
-int copy_sequences_to_cuda_memory(
-		bwa_seqio_t *bs,
-		uint2 *global_sequences_index,
-		uint2 *main_sequences_index,
-		unsigned char *global_sequences,
-		unsigned char *main_sequences,
-		unsigned int *read_size,
-		unsigned short *max_length,
-		int *same_length,
-		int buffer,
-		unsigned long long *clump_array,
-		unsigned char clump_len)
-{
-	//sum of length of sequences up the the moment
-	unsigned int accumulated_length = 0;
-	//sequence's read length
-
-	unsigned int number_of_sequences = 0;
-
-#define NEW_QUERY_READER 1
-
-#if NEW_QUERY_READER == 0
-error need to set same_length...
-	unsigned short read_length = 0;
-	while (bwa_read_seq_one_half_byte(bs,main_sequences,accumulated_length,&read_length,clump_array,clump_len,number_of_sequences)>0)
-	{
-		main_sequences_index[number_of_sequences].x = accumulated_length;
-		main_sequences_index[number_of_sequences].y = read_length;
-		if (read_length > *max_length) *max_length = read_length;
-
-		accumulated_length += read_length;
-		number_of_sequences++;
-
-		if ( accumulated_length + MAX_SEQUENCE_LENGTH > (1ul<<(buffer+1)) ) break;
-	}
-#else
-	int n_seqs = 0;
-	barracuda_query_array_t *seqs = barracuda_read_seqs(bs,  buffer, &n_seqs, 0, 0, &accumulated_length, max_length, same_length);
-	barracuda_write_to_half_byte_array(seqs, main_sequences, main_sequences_index, n_seqs);
-	number_of_sequences = (unsigned int) n_seqs;
-
+#if DEBUG_LEVEL > 8
+	printf ("in cal width\n");
 #endif
-
-  if (number_of_sequences == 0) {
-    return 0;
-  }
-
-    //copy main_sequences_width from host to device
-    cudaUnbindTexture(sequences_index_array);
-    report_cuda_error_GPU("[aln_core] Error freeing texture \"sequences_index_array\".");
-    cudaMemcpy(global_sequences_index, main_sequences_index, (number_of_sequences)*sizeof(uint2), cudaMemcpyHostToDevice);
-    report_cuda_error_GPU("[aln_core] Error copying to \"global_sequences_index\" on GPU");
-    cudaBindTexture(0, sequences_index_array, global_sequences_index, (number_of_sequences)*sizeof(uint2));
-    report_cuda_error_GPU("[aln_core] Error binding texture \"sequences_index_array\".\n");
-
-    //copy main_sequences from host to device, sequences array length should be accumulated_length/2
-    cudaUnbindTexture(sequences_array);
-    report_cuda_error_GPU("[aln_core] Error freeing texture \"sequences_array\".");
-    cudaMemcpy(global_sequences, main_sequences, (1ul<<(buffer))*sizeof(unsigned char), cudaMemcpyHostToDevice);
-    report_cuda_error_GPU("[aln_core] Error copying to \"global_sequences\" on GPU");
-    cudaBindTexture(0, sequences_array, global_sequences, (1ul<<(buffer))*sizeof(unsigned char));
-    report_cuda_error_GPU("[aln_core] Error binding texture to \"sequences_array\".\n");
-
-    if ( read_size ) *read_size = accumulated_length;
-    free (seqs);
-    return number_of_sequences;
-}
-
-//CUDA DEVICE CODE STARTING FROM THIS LINE
-/////////////////////////////////////////////////////////////////////////////
-
-#define scache_global_bwt
-#if __CUDA_ARCH__ < 350
-#define direct_global_bwt 1
-#endif //__ldg only supported in compute level 3.5 (ie Tesla K20) and after
-
-/*WBL 12 Feb 2015 performance much worse for barracuda r1.85
- * for timebeing try using full old version of bwt_cuda_occ4*/
-#include "bwt_cuda_occ4.cuh"
-
-#include "cuda.cuh"
-
-
-/*WBL 11 feb 2015 dummy stub fix cuda_dfs_match() properly later**
-__device__ ulong4 bwt_cuda_occ4(uint32_t *global_bwt, bwtint_t k) {
+	unsigned short bid;
+	//suffix array interval k(lower bound) and l(upper bound)
+	bwtint_t k, l;
+	unsigned int i;
 	int last = -1;		
 #ifdef scache_global_bwt
-	D_mycache;
+		D_mycache;
 #else
 	//may need non-default __align__ to allow efficent access from __ldg()
 #ifdef mycache4
@@ -494,1198 +69,1084 @@ __device__ ulong4 bwt_cuda_occ4(uint32_t *global_bwt, bwtint_t k) {
 	uint32_t mycache[size_mycache];
 #endif
 #endif
-#endif //scache_global_bwt
-  ulong4 n;
-  n.x = bwt_cuda_occ(global_bwt, k, 0, 0, &last,l_mycache0);
-  n.y = bwt_cuda_occ(global_bwt, k, 1, 0, &last,l_mycache0);
-  n.z = bwt_cuda_occ(global_bwt, k, 2, 0, &last,l_mycache0);
-  n.w = bwt_cuda_occ(global_bwt, k, 3, 0, &last,l_mycache0);
-  return n;
-}
-*/
+#endif /*scache_global_bwt*/
 
-//configuration options for GP to tune
-#undef direct_sequence
-#include "bwt_cuda_match_exact.cuh"
+	// do calculation and update w and bid
+	bid = 0;
+	k = 0;
+	l = bwt_cuda.seq_len;
+	//printf("seq_len: %llu\n", bwt_cuda.seq_len);
+//	printf("from GPU\n");
 
-
-#include "cuda2.cuh"
-//END CUDA DEVICE CODE
-
-// return the difference in second between two timeval structures
-double diff_in_seconds(struct timeval *finishtime, struct timeval * starttime)
-{
-	double sec;
-	sec=(finishtime->tv_sec-starttime->tv_sec);
-	sec+=(finishtime->tv_usec-starttime->tv_usec)/1000000.0;
-	return sec;
-}
-
-gap_opt_t *gap_init_bwaopt(gap_opt_t * opt)
-{
-	gap_opt_t *o;
-	o = (gap_opt_t*)calloc(1, sizeof(gap_opt_t));
-	o->s_mm = opt->s_mm;
-	o->s_gapo = opt->s_gapo;
-	o->s_gape = opt->s_gape;
-	o->max_diff = opt->max_diff;
-	o->max_gapo = opt->max_gapo;
-	o->max_gape = opt->max_gape;
-	o->indel_end_skip = opt->indel_end_skip;
-	o->max_del_occ = opt->max_del_occ;
-	o->max_entries = opt->max_entries;
-	o->mode = opt->mode;
-	o->seed_len = opt->seed_len;
-	o->max_seed_diff = opt->max_seed_diff;
-	o->fnr = opt->fnr;
-	o->n_threads = 0;
-	o->max_top2 = opt->max_top2;
-	o->trim_qual = 0;
-	return o;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////
-
-void add_to_process_queue(init_bin_list * bin, barracuda_aln1_t * aln, alignment_meta_t * partial, unsigned int sequence_id){
-#if ARRAN_DEBUG_LEVEL > 0
-		fprintf(stderr, "\n[aln_core][split_bin] pos: %i k: %llu l: %llu mm: %i gapo: %i gape: %i score: %i seq: %i", partial->pos, aln->k, aln->l, aln->n_mm, aln->n_gapo, aln->n_gape, aln->score, sequence_id);
-#endif
-	init_list * new_aln = (init_list*) malloc(sizeof(init_list));
-	memset(new_aln, 0, sizeof(init_list));
-	if(bin->aln_list){
-		new_aln->next = bin->aln_list;
+//	printf("k&l calculations\n");
+	for (i = offset; i < length; ++i) {
+		unsigned char c = sequence[i];
+		//printf("\n\nbase %u,%u\n",i,c);
+		//printf("k: %llu l: %llu\n",k,l);
+		if (c < 4) {
+				//printf("Calculating k\n");
+			//unsigned long long startK = k;
+			//unsigned long long tmpK = ((k==0)?0:bwt_cuda_occ(global_bwt, k - 1, c)) + 1;
+				k = bwt_cuda.L2[c] + ((k==0)?0:bwt_cuda_occ(global_bwt, k - 1, c, 0, &last,l_mycache0)) + 1;
+				//printf("Calculating l\n");
+				//unsigned long long startL = l;
+				//unsigned long long tmpL = bwt_cuda_occ(global_bwt, l, c);
+				l = bwt_cuda.L2[c] + bwt_cuda_occ(global_bwt, l, c, 1, &last,l_mycache0);
+				//printf("%i	occ: %llu\n", c, bwt_cuda.L2[c]);
+				//if(offset==0) printf("i:%d,c:%d,bwt:%u,\n", i, c, bwt_cuda.L2[c]);
+//				printf("k:%u,",k);
+//				printf("l:%u\n",l);
+		}
+		if (k > l || c > 3) {
+			k = 0;
+			l = bwt_cuda.seq_len;
+			++bid;
+		}
+		widths[i] = l - k + 1;
+		bids[i] = bid;
 	}
-	bin->aln_list = new_aln;
-	bin->processed = 0;
-
-	init_info_t	*to_queue = &(new_aln->init);
-
-	to_queue->score = aln->score;
-	to_queue->sequence_id = sequence_id;
-	to_queue->best_cnt = partial->best_cnt;
-
-	//each kernel updates its own start_pos for the next round based upon the pass length it determines
-	//this allows us to run partial hits from different points in sequences or for sequences of different lengths
-	assert(partial->pos >= 0); //could fail in 0.7.107d as used signed char
-	to_queue->start_pos = partial->pos;
-
-	to_queue->lim_k = aln->k;
-	to_queue->lim_l = aln->l;
-	to_queue->cur_n_mm = aln->n_mm;
-	to_queue->cur_n_gapo = aln->n_gapo;
-	to_queue->cur_n_gape = aln->n_gape;
+	widths[length] = k + 1;
+	bids[length] = bid;
+	//printf("\n\n here comes width and bids\n");
+	//for(i = 0; i < length; ++i){
+//		printf("%u,%d,%u,%u\n",i,sequence[i],widths[i],bids[i]);
+//	}
+	return;
 }
 
-void stdout_aln_head(const int id, const int* no_of_alignments) {
-#if STDOUT_STRING_RESULT == 1
-  //output even if no_of_alignments <=0 
-  printf("Sequence %d", id);
-  printf(", no of alignments: %d\n", *no_of_alignments);
-#else
-  err_fwrite(no_of_alignments, 4, 1, stdout);
-#endif
-}
-
-#if STDOUT_STRING_RESULT == 1
-//ignore nmemb < MAX_NO_OF_ALIGNMENTS limit
-#define stdout_aln1(type,opt_best_cnt)	\
-  for(size_t i=0; i<nmemb; i++) {\
-    printf("  Aligned read, ");\
-    printf("n_mm: %d, ",   aln[i].n_mm);\
-    printf("n_gape: %d, ", aln[i].n_gape);\
-    printf("n_gapo: %d, ", aln[i].n_gapo);\
-    printf("k: %llu, ",    aln[i].k);\
-    printf("l: %llu, ",    aln[i].l);\
-    printf("score: %d",    aln[i].score);\
-    opt_best_cnt;\
-    printf("\n");\
-  }
-#else
-#define stdout_aln1(type,opt_best_cnt) \
-  err_fwrite(aln, sizeof(type), nmemb, stdout);
-#endif
-
-void stdout_bwt_aln1(      const bwt_aln1_t       *aln, const size_t nmemb) {
-  //fprintf(stderr,"stdout_bwt_aln1(*aln, %d) %dbytes\n",nmemb,sizeof(bwt_aln1_t));
-  stdout_aln1(bwt_aln1_t,);
-}
-void stdout_barracuda_aln1(const barracuda_aln1_t *aln, const size_t nmemb) {
-  //fprintf(stderr,"stdout_barracuda_aln1(*aln, %d) %dbytes\n",nmemb,sizeof(barracuda_aln1_t));
-  stdout_aln1(barracuda_aln1_t,printf("best_cnt: %d", aln[i].best_cnt));
-}
-#undef stdout_aln1
-
-/*WBL for debug
-void print_init_host(const int no_to_process, const init_info_t * global_init_host) {
-  fprintf(stderr,"\n");
-  fprintf(stderr,"print_init_host(%d,global_init_host)\n",no_to_process);
-  for(int i=0;i<no_to_process;i++) {
-    fprintf(stderr,"%lu %lu %u %u %u best_diff %d start_pos %d score %d id %d best_cnt %d\n",
-	    global_init_host[i].lim_k,
-	    global_init_host[i].lim_l,
-	    int(global_init_host[i].cur_n_mm), int(global_init_host[i].cur_n_gapo), int(global_init_host[i].cur_n_gape),
-	    global_init_host[i].best_diff,
-	    int(global_init_host[i].start_pos),
-	    global_init_host[i].score,
-	    global_init_host[i].sequence_id,
-	    global_init_host[i].best_cnt);
-  }
-}
-
-void print_global_alns(const int no_to_process, const int max_no_partial_hits, const barracuda_aln1_t * global_alns_device) {
-  const size_t nbytes = max_no_partial_hits*no_to_process*sizeof(barracuda_aln1_t);
-  barracuda_aln1_t * global_alns_host = (barracuda_aln1_t*)malloc(nbytes);
-  assert(global_alns_host);
-  cudaMemcpy(global_alns_host, global_alns_device, nbytes, cudaMemcpyDeviceToHost);
-  report_cuda_error_GPU("[aln_core] Error reading \"global_alns_host\" from GPU for print.");
-
-  fprintf(stderr,"\n");
-  fprintf(stderr,"print_global_alns(%d,%d,global_alns_device)\n",no_to_process,max_no_partial_hits);
-  for(int i=0;i<no_to_process;i++) {
-    fprintf(stderr,"alns %d ",i);
-    for(int j=0;j<max_no_partial_hits;j++) {
-      fprintf(stderr,"%d %d %d ",
-	     int(global_alns_host[i].n_mm),
-	     int(global_alns_host[i].n_gapo),
-	     int(global_alns_host[i].n_gape));
-      fprintf(stderr,"%lu %lu ",global_alns_host[i].k,global_alns_host[i].l);
-      fprintf(stderr,"%d %d",global_alns_host[i].score,global_alns_host[i].best_cnt);
-      if(j<max_no_partial_hits-1) fprintf(stderr,", ");
-    }
-    fprintf(stderr,"\n");
-  }
-
-  free(global_alns_host);
-}*/
-void core_kernel_loop(int sel_device, int buffer, gap_opt_t *opt, bwa_seqio_t *ks, double total_time_used, uint32_t *global_bwt)
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Core loop (this loads sequences to host memory, transfers to cuda device and aligns via cuda in CUDA blocks)
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+__device__ int bwa_cuda_cal_maxdiff(int l, double err, double thres)
 {
-	//Variable Initializations
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-	//Timings
-		double total_calculation_time_used = 0;
-		struct timeval start, end;
-		double time_used;
-
-	//Sequence Reads related Variables
-	// The length of the longest read;
-		unsigned short max_sequence_length=0;
-		// maximum read size from sequences in bytes
-		int same_length;
-		// Flag: are all sequences the same length
-		unsigned int read_size = 0;
-		// Number of sequences read per batchequences reside in global memory of GPU
-		unsigned int no_of_sequences = 0;
-		// total number of sequences read
-		unsigned long long total_no_of_sequences = 0;
-		// total number of reads in base pairs
-		unsigned long long total_no_of_base_pair = 0;
-		unsigned char * global_sequences = 0;
-		// sequences reside in main memory of CPU
-		unsigned char * main_sequences = 0;
-		unsigned long long * main_suffixes = 0;
-		// sequences index reside in global memory of GPU
-		uint2 * global_sequences_index = 0;
-		// sequences index reside in main memory of CPU
-		uint2 * main_sequences_index = 0;
-
-		// initializing pointer for device options from user
-		gap_opt_t *options;
-
-		// initial best score is the worst tolerated score without any alignment hit.
-		const int best_score = aln_score(opt->max_diff+1, opt->max_gapo+1, opt->max_gape+1, opt);
-
-		// global alignment stores for device
-		//Variable for alignment result stores
-		alignment_meta_t * global_alignment_meta_device;
-		barracuda_aln1_t * global_alns_device;
-		init_info_t * global_init_device;
-		widths_bids_t * global_w_b_device;
-		char * global_seq_flag_device, *global_seq_flag_host;
-		// global alignment stores for host
-		alignment_meta_t * global_alignment_meta_host, * global_alignment_meta_host_final;
-		barracuda_aln1_t * global_alns_host, * global_alns_host_final;
-		init_info_t * global_init_host;
-		bwtkl_t * kl_device, *kl_host;
-
-
-
-	//CPU and GPU memory allocations
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	gettimeofday (&start, NULL);
-		//allocate global_sequences memory in device
-		cudaMalloc((void**)&global_sequences, (1ul<<(buffer))*sizeof(unsigned char));
-		report_cuda_error_GPU("[core] Error allocating cuda memory for \"global_sequences\".");
-		main_sequences = (unsigned char *)malloc((1ul<<(buffer))*sizeof(unsigned char));
-		//suffixes for clumping
-		main_suffixes = (unsigned long long *)malloc((1ul<<(buffer-3))*sizeof(unsigned long long));
-		//allocate global_sequences_index memory in device assume the average length is bigger the 16bp (currently -3, -4 for 32bp, -3 for 16bp)long
-		cudaMalloc((void**)&global_sequences_index, (1ul<<(buffer-3))*sizeof(uint2));
-		report_cuda_error_GPU("[core] Error allocating cuda memory for \"global_sequences_index\".");
-		main_sequences_index = (uint2*)malloc((1ul<<(buffer-3))*sizeof(uint2));
-		//allocate and copy options (opt) to device constant memory
-		cudaMalloc((void**)&options, sizeof(gap_opt_t));
-		report_cuda_error_GPU("[core] Error allocating cuda memory for \"options\".");
-		cudaMemcpy ( options, opt, sizeof(gap_opt_t), cudaMemcpyHostToDevice);
-		report_cuda_error_GPU("[aln_core] Error cudaMemcpy to \"options\" on GPU");
-		cudaMemcpyToSymbol ( options_cuda, opt, sizeof(gap_opt_t), 0, cudaMemcpyHostToDevice);
-		report_cuda_error_GPU("[aln_core] Error in cudaMemcpyToSymbol to \"options_cuda\" on GPU");
-		//allocate alignment stores for host and device
-		cudaMalloc((void**)&global_alignment_meta_device, (1ul<<(buffer-3))*sizeof(alignment_meta_t));
-		report_cuda_error_GPU("[core] Error allocating cuda memory for \"global_alignment_meta_device\".");
-		cudaMalloc((void**)&global_alns_device, MAX_NO_PARTIAL_HITS*(1ul<<(buffer-3))*sizeof(barracuda_aln1_t));
-		report_cuda_error_GPU("[core] Error allocating cuda memory for \"global_alns_device\".");
-		cudaMalloc((void**)&global_init_device, (1ul<<(buffer-3))*sizeof(init_info_t));
-		report_cuda_error_GPU("[core] Error allocating cuda memory for \"global_init_device\".");
-		cudaMalloc((void**)&global_w_b_device, (1ul<<(buffer-3))*sizeof(widths_bids_t));
-		report_cuda_error_GPU("[core] Error allocating cuda memory for \"global_w_b_device\".");
-		cudaMalloc((void**)&global_seq_flag_device, (1ul<<(buffer-3))*sizeof(char));	
-		report_cuda_error_GPU("[core] Error allocating cuda memory for \"global_seq_flag_device\".");
-
-		cudaMalloc((void**)&kl_device, (1ul<<(buffer-3))*sizeof(bwtkl_t));	
-		report_cuda_error_GPU("[core] Error allocating cuda memory for \"kl_device\".");
-
-	//allocate alignment store memory in device assume the average length is bigger the 16bp (currently -3, -4 for 32bp, -3 for 16bp)long
-		global_alignment_meta_host = (alignment_meta_t*)malloc((1ul<<(buffer-3))*sizeof(alignment_meta_t));
-		assert(global_alignment_meta_host);//better than segfault later
-		global_alns_host = (barracuda_aln1_t*)malloc(MAX_NO_PARTIAL_HITS*(1ul<<(buffer-3))*sizeof(barracuda_aln1_t));
-		assert(global_alns_host);
-		global_alignment_meta_host_final = (alignment_meta_t*)malloc((1ul<<(buffer-3))*sizeof(alignment_meta_t));
-		assert(global_alignment_meta_host_final);
-		global_alns_host_final = (barracuda_aln1_t*)malloc(MAX_NO_OF_ALIGNMENTS*(1ul<<(buffer-3))*sizeof(barracuda_aln1_t));
-		assert(global_alns_host_final);
-		global_init_host = (init_info_t*)malloc((1ul<<(buffer-3))*sizeof(init_info_t));
-		assert(global_init_host);
-		global_seq_flag_host = (char*)malloc((1ul<<(buffer-3))*sizeof(char));
-		assert(global_seq_flag_host);
-		kl_host = (bwtkl_t*)malloc((1ul<<(buffer-3))*sizeof(bwtkl_t));
-		assert(kl_host);
-
-	gettimeofday (&end, NULL);
-	time_used = diff_in_seconds(&end,&start);
-	total_time_used += time_used;
-
-#if DEBUG_LEVEL > 0
-	fprintf(stderr,"[aln_debug] Finished allocating CUDA device memory\n");
-#endif
-
-
-	//Core loop starts here
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-	gettimeofday (&start, NULL);
-	int loopcount = 0;
-	// unsigned int cur_sequence_id = 0; //unique sequence identifier
-	// determine block size according to the compute capability
-	int blocksize, avg_length;
-	char split_engage;
-	cudaDeviceProp selected_properties;
-	cudaGetDeviceProperties(&selected_properties, sel_device);
-	report_cuda_error_GPU("[core] Error on \"cudaGetDeviceProperties\".");
-	if ((int) selected_properties.major > 1) {
-		blocksize = 64;
-	} else {
-		blocksize = 64;//gives 99% of top speed on Tesla T10 with ERR239771_1.200k.fastq
+	double elambda = exp(-l * err);
+	double sum, y = 1.0;
+	int k, x = 1;
+	for (k = 1, sum = elambda; k < 1000; ++k) {
+		y *= l * err;
+		x *= k;
+		sum += elambda * y / x;
+		if (1.0 - sum < thres) return k;
 	}
+	return 2;
+}
 
-	while ( ( no_of_sequences = copy_sequences_to_cuda_memory(ks, global_sequences_index, main_sequences_index, global_sequences, main_sequences, &read_size, &max_sequence_length, &same_length, buffer, main_suffixes, SUFFIX_CLUMP_WIDTH) ) > 0 )
+__device__ void gap_stack_shadow_cuda(int x, bwtint_t max, int last_diff_pos, unsigned int * width, unsigned char * bid)
+{
+	int i, j;
+	for (i = j = 0; i < last_diff_pos; ++i)
 	{
-		#define GRID_UNIT 32
-		int gridsize = GRID_UNIT * (1 + int (((no_of_sequences/blocksize) + ((no_of_sequences%blocksize)!=0))/GRID_UNIT));
-		dim3 dimGrid(gridsize);
-		dim3 dimBlock(blocksize);
-
-		avg_length = (read_size/no_of_sequences);
-		split_engage = avg_length > SPLIT_ENGAGE;
-
-		if(opt->seed_len > avg_length)
+		if (width[i] > x)
 		{
-			fprintf(stderr,"[aln_core] Warning! Specified seed length [%d] exceeds average read length, setting seed length to %d bp.\n", opt->seed_len, int ((read_size/no_of_sequences)>>1));
-			opt->seed_len = read_size/no_of_sequences >> 1; //if specify seed length not valid, set to half the sequence length
+			width[i] -= x;
 		}
-
-		if (!loopcount) fprintf(stderr, "[aln_core] Now aligning sequence reads to reference assembly, please wait..");
-
-		if (!loopcount)	{
-#if DEBUG_LEVEL > 0
-			fprintf(stderr, "[aln_debug] Average read size: %dbp\n", read_size/no_of_sequences);
-			fprintf(stderr, "[aln_debug] Using Reduced kernel\n");
-			fprintf(stderr, "[aln_debug] Using SIMT with grid size: %u, block size: %d. ", gridsize,blocksize) ;
-			fprintf(stderr,"\n[aln_debug] Loop count: %i\n", loopcount + 1);
-#endif
-		//	fprintf(stderr,"[aln_core] Processing %d sequence reads at a time.", (gridsize*blocksize)) ;
-		}
-		//fprintf(stderr, "%d sequences max_sequence_length=%d same_length=%d\n", no_of_sequences, max_sequence_length, same_length);
-		//fprintf(stderr, "l%d", loopcount);
-#if STDOUT_STRING_RESULT == 1
-		fprintf(stdout, "loopcount %d\n", loopcount);
-#endif
-
-		gettimeofday (&end, NULL);
-		time_used = diff_in_seconds(&end,&start);
-
-		int run_no_sequences = no_of_sequences; //for compatibility to PETR_SPLIT_KERNEL only
-
-		total_time_used+=time_used;
-
-		// initialise the alignment stores
-		memset(global_alignment_meta_host_final, 0, no_of_sequences*sizeof(alignment_meta_t));
-		memset(global_alns_host_final, 0, no_of_sequences*MAX_NO_OF_ALIGNMENTS*sizeof(barracuda_aln1_t));
-		for(int i=0; i<no_of_sequences; i++){
-			global_alignment_meta_host_final[i].best_score = best_score;
-		}
-
-		///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		// Core match function per sequence readings
-		///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-		gettimeofday (&start, NULL);
-
-#if DEBUG_LEVEL > 0
-		fprintf(stderr,"\n[aln_debug] reduced kernel starts \n", time_used);
-#endif
-#if DEBUG_LEVEL > 3
-		//printf("cuda opt:%d\n", cuda_opt);
-#endif
-
-		if(max_sequence_length > MAX_SEQUENCE_LENGTH) {//protect cuda_prepare_widths etc.
-		  fprintf(stderr, "\n[aln_core] sequence of %d bp which exceeds limit %d\n[aln_core] Abort!\n", max_sequence_length, MAX_SEQUENCE_LENGTH);
-		  return;
-		}
-
-		cudaError_t cuda_err;
-
-		///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		// Widths & Bids
-		///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		//in this case, seq_flag is used to note sequences that have too many N characters
-		cuda_prepare_widths<<<dimGrid,dimBlock>>>(global_bwt, no_of_sequences, global_w_b_device, global_seq_flag_device);
-		//fprintf(stderr,"cuda_prepare_widths<<<(%d,%d,%d)(%d,%d,%d)>>>(global_bwt, %d, global_w_b_device, global_seq_flag_device)\n",
-		//	dimGrid.x,dimGrid.y,dimGrid.z,dimBlock.x,dimBlock.y,dimBlock.z,no_of_sequences);
-
-		cudaDeviceSynchronize();
-		cuda_err = cudaGetLastError();
-		if(int(cuda_err))
+		else if (width[i] == x)
 		{
-			fprintf(stderr, "\n[aln_core] CUDA ERROR(s) reported during width/bid preparation! Last CUDA error message: %s\n[aln_core] Abort!\n", cudaGetErrorString(cuda_err));
-			return;
-		}
-		/*if(loopcount==0){
-		  const size_t nbytes = no_of_sequences*sizeof(widths_bids_t);
-		  widths_bids_t* w_b = (widths_bids_t*)malloc(nbytes);
-		  assert(w_b);
-		  cudaMemcpy(w_b, global_w_b_device, nbytes, cudaMemcpyDeviceToHost);
-		  report_cuda_error_GPU("[aln_core] Error reading \"global_w_b_device\" from GPU.");
-		  for(int i=0;i<no_of_sequences;i++) {
-		    printf("w_b %d ",i);
-		    for(int j=0;j<max_sequence_length+1;j++) {
-		      printf("%u %u",w_b[i].widths[j],int(w_b[i].bids[j]));
-		      if(j<=max_sequence_length) printf(" ");
-		    }
-		    printf("\n");
-		  }
-		  free(w_b);
-		}*/
+			bid[i] = 1;
+			width[i] = max - (++j);
+		} // else should not happen
+	}
+}
 
-		if(same_length) { /*new cuda_find_exact_matches assumes all sequences are same length*/
-		//WBL re-enabled cuda_find_exact_matches with new KL output
-		//fprintf(stderr, "cuda_find_exact_matches<<<(%d,%d,%d)(%d,%d,%d)>>>(global_bwt, %d, %d, kl_device)\n",
-		//	dimGrid.x,dimGrid.y,dimGrid.z,dimBlock.x,dimBlock.y,dimBlock.z,no_of_sequences,max_sequence_length);
-		struct timeval start2;
-		gettimeofday (&start2, NULL);
-		cuda_find_exact_matches<<<dimGrid,dimBlock>>>(global_bwt, no_of_sequences, max_sequence_length, kl_device);
-		cudaDeviceSynchronize();
-		cuda_err = cudaGetLastError();
-		if(int(cuda_err))
-		{
-			fprintf(stderr, "\n[aln_core] CUDA ERROR(s) reported during exact match pre-check! Last CUDA error message: %s\n[aln_core] Abort!\n", cudaGetErrorString(cuda_err));
-			return;
-		}
-		gettimeofday (&end, NULL);
-		const double time_used = diff_in_seconds(&end,&start2);
-		//fprintf(stderr, "\n[aln_core] find_exact_matches Kernel speed: %g sequences/sec or %g bp/sec %g", no_of_sequences/time_used, read_size/time_used, time_used);
-		}
-		cudaMemcpy(kl_host, kl_device, no_of_sequences*sizeof(bwtkl_t), cudaMemcpyDeviceToHost);
-		report_cuda_error_GPU("[aln_core] Error reading \"kl_host\" from GPU.");
+__device__ unsigned int int_log2_cuda(uint32_t v)
+//integer log
+{
+	unsigned int c = 0;
+	if (v & 0xffff0000u) { v >>= 16; c |= 16; }
+	if (v & 0xff00) { v >>= 8; c |= 8; }
+	if (v & 0xf0) { v >>= 4; c |= 4; }
+	if (v & 0xc) { v >>= 2; c |= 2; }
+	if (v & 0x2) c |= 1;
+	return c;
+}
 
-		/*if(loopcount==0)
-		for(int i=0;i<no_of_sequences;i++) {
-		  printf("kl %d %lu %lu\n",i,kl_host[i].k,kl_host[i].l);
-		}*/
+//////////////////////////////////////////////////////////////////////////////////////////
+//DFS MATCH
+//////////////////////////////////////////////////////////////////////////////////////////
 
-		///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		// Exclude exact unique matches and
-		// Cull for too many Ns
-		///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		memset(global_init_host, 0, no_of_sequences*sizeof(init_info_t));
-		cudaMemcpy(global_seq_flag_host, global_seq_flag_device, no_of_sequences*sizeof(char), cudaMemcpyDeviceToHost);
-		report_cuda_error_GPU("[aln_core] Error reading \"global_seq_flag_host\" from GPU.");
-		cudaDeviceSynchronize();
-		report_cuda_error_GPU("[aln_core] cuda error");
-		unsigned int no_to_process = 0;
-		for(int i=0; i<no_of_sequences; i++){
-		    //use K,L values to note sequences that have a unique exact match - allows setting of best_score=0 and skiping rest of processing
-			if(same_length && /*ie cuda_find_exact_matches has been run*/
-			   kl_host[i].k == kl_host[i].l) {
-		    //save k and l, clear rest (n_mm etc)
-				barracuda_aln1_t * tmp_aln = global_alns_host_final + i*MAX_NO_OF_ALIGNMENTS;
-				memset(tmp_aln,0,sizeof(barracuda_aln1_t)); //clear n_mm, n_gapo,n_gape, score, best_cnt
-				memcpy(&(tmp_aln->k),&kl_host[i].k,sizeof(bwtkl_t));
-				//tmp_aln->n_mm = 100+loopcount; //for debug
-		    //make sure sequence is marked so not processed again
-				memset(global_alignment_meta_host_final + i, 0, sizeof(alignment_meta_t));		    
-				global_alignment_meta_host_final[i].no_of_alignments = 1;
-				//best_score = 0;
-				global_alignment_meta_host_final[i].sequence_id = i;
-				global_alignment_meta_host_final[i].best_cnt = 1;
-				//char pos = 0;
-				global_alignment_meta_host_final[i].finished = 1;
-				//fprintf(stderr, "global_alignment_meta_host_final[%d].sequence_id = %d\n",i,global_alignment_meta_host_final[i].sequence_id);
-			} else
-			if(global_seq_flag_host[i]){
-				memset(global_alignment_meta_host_final + i, 0, sizeof(alignment_meta_t));
-				global_alignment_meta_host_final[i].sequence_id = i;
-			}
-			else {
-				global_init_host[no_to_process].sequence_id = i;
-				no_to_process++;
-			}
-		}
+__device__ void cuda_dfs_initialize(ulong2 *stack, uchar4 *stack_mm, uint2 *position_data, char4 *pushes/*, int * scores*/)
+//initialize memory store for dfs_match
+{
+	int i;
+	ulong2 temp1 = {0,0};
+	uchar4 temp2 = {0,0,0,0};
+	char4 temp3 = {0,0,0,0};;
+	uint2 temp4 = {0,0};
 
-		///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		// Clump based on matching suffixes
-		// Assumes that sequences were sorted
-		///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		unsigned char first=1, clumping;
-		unsigned int prev_suffix, old_no_to_process=no_to_process; //, unique=0;
-		suffix_bin_list *suff_lst=0, *currSuff, *suff_ptrs[no_of_sequences];
-		suffix_seq_list *currSeq;
+	// zero out the whole stack
+	for (i = 0; i < MAX_ALN_LENGTH; i++)
+	{
+		stack[i] = temp1;
+		stack_mm[i] = temp2;
+		pushes[i] = temp3;
+		position_data[i] = temp4;
+	}
+	return;
+}
 
-		if(SUFFIX_CLUMP_WIDTH){
-			for(int i=0; i<no_to_process; i++){
-				if(main_suffixes[i]!=prev_suffix || first){
-#if ARRAN_DEBUG_LEVEL > 0
-	fprintf(stderr, "\n[aln_core][suffix_bin] Creating bin for suffix %llu", main_suffixes[i]);
+__device__ void cuda_dfs_push(ulong2 *stack, uchar4 *stack_mm, uint2* position_data, char4 *pushes, int i, bwtint_t k, bwtint_t l, int n_mm, int n_gapo, int n_gape, int state, int is_diff, int current_stage)
+//create a new entry in memory store
+{
+	//printf(",%i/%i", i, current_stage);
+	stack[current_stage].x = k;
+	stack[current_stage].y = l;
+	//stack[current_stage].z = i;
+	//if (is_diff)stack[current_stage].w = i;
+
+	position_data[current_stage].x = i;
+	if(is_diff) position_data[current_stage].y = i;
+
+	//printf("length pushed: %u\n", i);
+	stack_mm[current_stage].x = n_mm;
+	stack_mm[current_stage].y = n_gapo;
+	stack_mm[current_stage].z = n_gape;
+	stack_mm[current_stage].w = state;
+
+	char4 temp = {0,0,0,0};
+	pushes[current_stage] = temp;
+	return;
+}
+
+
+__device__ int cuda_dfs_match(uint32_t * global_bwt, int len, const unsigned char *str,  unsigned int *widths,  unsigned char *bids, const gap_opt_t *opt, alignment_meta_t *aln, barracuda_aln1_t* alns, init_info_t* init, int best_score, int full_len, char seeding, bool *hits)
+//This function tries to find the alignment of the sequence and returns SA coordinates, no. of mismatches, gap openings and extensions
+//It uses a depth-first search approach rather than breath-first as the memory available in CUDA is far less than in CPU mode
+//The search rooted from the last char [len] of the sequence to the first with the whole bwt as a ref from start
+//and recursively narrow down the k(upper) & l(lower) SA boundaries until it reaches the first char [i = 0], if k<=l then a match is found.
+{
+
+#if DEBUG_LEVEL > 6
+	printf ("in dfs match\n");
 #endif
-					currSuff = (suffix_bin_list*) malloc(sizeof(suffix_bin_list));
-					memset(currSuff, 0, sizeof(suffix_bin_list));
-					if(suff_lst){
-						currSuff->next = suff_lst;
-					}
-					suff_lst = currSuff;
-					first = 0;
-					prev_suffix = main_suffixes[i];
-					//unique++;
-				}
+	//Initialisations
+	int start_pos = init->start_pos;
+	int remain = full_len - len - start_pos;
+	aln->pos = init->start_pos + len;
+	int best_diff = start_pos==0 ? opt->max_diff + 1 : init->best_diff;
+	int best_cnt = init->best_cnt;
+	const bwt_t * bwt = &bwt_cuda; // rbwt for sequence 0 and bwt for sequence 1;
+	int current_stage = 0;
+	ulong2 entries_info[MAX_ALN_LENGTH];
+	uint2 position_data[MAX_ALN_LENGTH];
+	uchar4 entries_scores[MAX_ALN_LENGTH];
+	char4 done_push_types[MAX_ALN_LENGTH];
+	int n_aln = 0;
+	int loop_count = 0;
+	const int max_count = options_cuda.max_entries;
 
-				suff_ptrs[global_init_host[i].sequence_id] = suff_lst;
-				currSeq = (suffix_seq_list*) malloc(sizeof(suffix_seq_list));
-				memset(currSeq, 0, sizeof(suffix_seq_list));
-				currSeq->sequence_id = global_init_host[i].sequence_id;
-				if(suff_lst->seq){
-					currSeq->next = suff_lst->seq;
-				}
-#if ARRAN_DEBUG_LEVEL > 0
-	fprintf(stderr, "\n[aln_core][suffix_bin] Adding sequence %i to bin for suffix %llu", currSeq->sequence_id, main_suffixes[i]);
-#endif
-				suff_lst->seq = currSeq;
-			}
+	/*if(init->has_exact){
+		best_score = 0;
+	}
+	else */if(start_pos) {
+		best_score = init->score;
+	}
 
-			no_to_process = 0;
-			currSuff = suff_lst;
-			do {
-				global_init_host[no_to_process].sequence_id = currSuff->seq->sequence_id;
-				no_to_process++;
-				currSuff = currSuff->next;
-			}
-			while(currSuff);
+	int max_diff_base, allow_gap, max_no_partial_hits;
+	if(seeding){
+		max_diff_base = opt->max_seed_diff;
+		max_no_partial_hits = MAX_NO_SEEDING_PARTIALS;
+	}
+	else {
+		max_diff_base = opt->max_diff;
+		max_no_partial_hits = MAX_NO_REGULAR_PARTIALS;
+	}
 
-			clumping = old_no_to_process!=no_to_process;
+	if(options_cuda.fast){
+		allow_gap = seeding ? 0 : options_cuda.max_gapo;
+	}
+	else {
+		allow_gap = opt->max_gapo;
+	}
+
+	//There are other places that these can be replaced (i.e. not calculated on every while loop) but they (empirically) slow things down. No idea why! Arran
+	uchar2 mode = {options_cuda.mode & BWA_MODE_NONSTOP, options_cuda.mode & BWA_MODE_GAPE};
+#define USE_MODE_NONSTOP mode.x
+#define USE_MODE_GAPE mode.y
+
+
+	//printf("worst_score:%u, query sequence length: %i\n", best_score,len);
+
+	//Initialise memory stores first in, last out
+
+	//Zero-ing the values is unnecessary because the push overwrites everything
+	cuda_dfs_initialize(entries_info, entries_scores, position_data, done_push_types/*, scores*/); //initialize initial entry, current stage set at 0 and done push type = 0
+
+	//push first entry, the first char of the query sequence into memory stores for evaluation
+	cuda_dfs_push(entries_info, entries_scores, position_data, done_push_types, len, init->lim_k, start_pos>0 ? init->lim_l : bwt->seq_len, init->cur_n_mm, init->cur_n_gapo, init->cur_n_gape, 0, 0, current_stage); //push initial entry to start
 
 #if ARRAN_DEBUG_LEVEL > 1
-	fprintf(stderr, "\n[aln_core][suffix_clump] Width: %i - Reduced to %i of %i (%0.2f%%)", SUFFIX_CLUMP_WIDTH, no_to_process, old_no_to_process, 100*(1-float(no_to_process)/float(no_of_sequences)));
+	char bases[4] = {'A', 'C', 'G', 'T'};
+	int start_score = init->cur_n_mm * options_cuda.s_mm + init->cur_n_gapo * options_cuda.s_gapo + init->cur_n_gape * options_cuda.s_gape;
+	printf("\n---STARTING LOOP start_pos: %i	k: %lu	l: %lu	start_score: %i	best_score: %i", start_pos, init->lim_k, entries_info[0].y, start_score, best_score);
 #endif
+
+	ulong4 cuda_cnt_k = {0,0,0,0};
+	while(current_stage >= 0)
+	{
+		int i,j, m;
+		int hit_found, allow_diff, allow_M;
+		bwtint_t k, l;
+		char e_n_mm, e_n_gapo, e_n_gape, e_state;
+		loop_count ++;
+		//define break from loop conditions
+		if ((remain==0 && n_aln == options_cuda.max_aln) || n_aln==max_no_partial_hits) {
+#if DEBUG_LEVEL > 7 || ARRAN_DEBUG_LEVEL > 1
+			printf("\n\n*****breaking on n_aln == max_aln\n");
+#endif
+			break;
+		}
+		if (remain==0 && best_cnt > options_cuda.max_top2) {
+#if DEBUG_LEVEL > 7 || ARRAN_DEBUG_LEVEL > 1
+			printf("\n\n*****breaking on best_cnt>... %i>%i\n", best_cnt, options_cuda.max_top2);
+#endif
+			break;
+		}
+		if (loop_count > max_count) {
+#if DEBUG_LEVEL > 7 || ARRAN_DEBUG_LEVEL > 1
+			printf("\n\n*****loop_count > max_count\n");
+#endif
+			break;
 
 		}
 
-		//fprintf(stderr, "'");
-		cudaMemcpy(global_init_device, global_init_host, no_to_process*sizeof(init_info_t), cudaMemcpyHostToDevice);
-		report_cuda_error_GPU("[aln_core] Error copying \"global_init_host\" to GPU.");
-		//cuda_find_exact_matches writes straight to global_init_device so we can launch the first kernel and then deal with global_seq_flag_device
+		//put extracted entry into local variables
+		k = entries_info[current_stage].x; // SA interval
+		l = entries_info[current_stage].y; // SA interval
+		//i = entries_info[current_stage].z; // length
+		i = position_data[current_stage].x;
+		//printf(",%i/%i", i, current_stage);
 
-		{//struct timeval start2;
-		//gettimeofday (&start2, NULL);
+		e_n_mm = entries_scores[current_stage].x; // no of mismatches
+		e_n_gapo = entries_scores[current_stage].y; // no of gap openings
+		e_n_gape = entries_scores[current_stage].z; // no of gap extensions
+		e_state = entries_scores[current_stage].w; // state (M/I/D)
 
-		cuda_inexact_match_caller<<<dimGrid,dimBlock>>>(global_bwt, no_to_process, global_alignment_meta_device, global_alns_device, global_init_device, global_w_b_device, best_score, split_engage, SUFFIX_CLUMP_WIDTH>0);
-		//fprintf(stderr,"1 cuda_inexact_match_caller<<<(%d,%d,%d)(%d,%d,%d)>>>(,%d,,,,,,,%d)\n",
-		//	dimGrid.x,dimGrid.y,dimGrid.z,dimBlock.x,dimBlock.y,dimBlock.z,no_to_process, SUFFIX_CLUMP_WIDTH);
-		//fprintf(stderr, "'");
-
-		//***EXACT MATCH CHECK***
-		//store knowledge of an exact match to be copied into init struct during partial hit queueing
-		//cudaMemcpy(global_seq_flag_host, global_seq_flag_device, no_of_sequences*sizeof(char), cudaMemcpyDeviceToHost);
-		//report_cuda_error_GPU("[aln_core] Error reading \"global_seq_flag_host\" from GPU.");
-		//for(int i=0; i<no_of_sequences; i++){
-//				if(global_seq_flag_host[i]){
-//					global_alignment_meta_host_final[i].has_exact = 1;
-//				}
-		//}
-
-
-#if DEBUG_LEVEL > 0
-		fprintf(stderr,"\n[aln_debug] kernel started, waiting for data... \n", time_used);
+		//calculate score
+		//Storing this in position_data[current_stage].z has been tested by including score+relevant_penalty in
+		//calls to cuda_dfs_push but it is slower than calculating each time
+		int score = e_n_mm * options_cuda.s_mm + e_n_gapo * options_cuda.s_gapo + e_n_gape * options_cuda.s_gape;
+		int worst_tolerated_score = (USE_MODE_NONSTOP)? 1000: best_score + options_cuda.s_mm;
+		if(score > worst_tolerated_score) {
+#if DEBUG_LEVEL > 7 || ARRAN_DEBUG_LEVEL > 1
+			printf("\n\n*****breaking on score(%i) > worst_tolerated_score(%i)\n", score, worst_tolerated_score);
 #endif
-		// Did we get an error running the code? Abort if yes.
-		cudaDeviceSynchronize(); //wait until kernel has had a chance to report error
-		cuda_err = cudaGetLastError();
-		if(int(cuda_err))
+			break;
+		}
+
+		int max_diff = max_diff_base;
+
+		//calculate the allowance for differences
+		m = max_diff - e_n_mm - e_n_gapo;
+
+#if DEBUG_LEVEL > 8
+		printf("dfs stage %u:",current_stage);
+		printf("k:%lu, l: %lu, i: %u, diff remaining :%u, best_score: %u, n_mm:%u\n", k, l,i,m, best_score, e_n_mm);
+#endif
+
+		if (USE_MODE_GAPE) m -= e_n_gape;
+
+		// check if the entry is outside boundary or is over the max diff allowed)
+		if (m < 0 || (i > 0 && m < bids[i-1+remain]))
 		{
-			fprintf(stderr, "\n[aln_core] CUDA ERROR(s) reported during first kernel run! Last CUDA error message: %s\n[aln_core] Abort!\n", cudaGetErrorString(cuda_err));
-			return;
+#if DEBUG_LEVEL > 8 || ARRAN_DEBUG_LEVEL > 1
+			printf("breaking: %d, m:%d\n", bids[i-1+remain],m);
+#endif
+			current_stage --;
+			continue;
 		}
 
-#if DEBUG_LEVEL > 0
-		fprintf(stderr, "\n[aln_debug] Last CUDA error message: %s\n[aln_core]", cudaGetErrorString(cuda_err));
-#endif
-
-		//Check time
-		//gettimeofday (&end, NULL);
-		//const double time_used = diff_in_seconds(&end,&start2);
-		//fprintf(stderr, "[aln_core] 1 inexact Kernel speed: %u %g sequences/sec %g\n", no_to_process, no_to_process/time_used, time_used);
-		}
-		gettimeofday (&end, NULL);
-		time_used = diff_in_seconds(&end,&start);
-		total_calculation_time_used += time_used;
-		total_time_used += time_used;
-		//fprintf(stderr, ".");
-		// query device for error
-
-		///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		// retrieve alignment information from CUDA device to host
-		///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-		gettimeofday (&start, NULL);
-
-		unsigned int process_capacity = (unsigned int) (1ul<<(buffer-3));
-
-		alignment_meta_t	* partial, * final;
-		barracuda_aln1_t	* aln, * final_aln;
-		int max_score = aln_score(opt->max_diff+1, opt->max_gapo+1, opt->max_gape+1, opt);
-		init_bin_list		* bins[max_score]; //will be a sparse array but it's tiny so memory wasting is minimal
-		for(int s=0; s<max_score; s++){
-			bins[s] = 0;
-		}
-
-		bins[0] = (init_bin_list*) malloc(sizeof(init_bin_list));
-		memset(bins[0], 0, sizeof(init_bin_list));
-
-		int split_loop_count = 0;
-		do {
-			cudaDeviceSynchronize();
-			report_cuda_error_GPU("[aln_core] cuda error_2.");
-			if(!split_loop_count){
-				//fprintf(stderr, "'");
-			}
-			cudaMemcpy(global_alignment_meta_host, global_alignment_meta_device, no_to_process*sizeof(alignment_meta_t), cudaMemcpyDeviceToHost);
-			report_cuda_error_GPU("[aln_core] Error reading \"global_alignment_meta_host\" from GPU.");
-			int max_no_partial_hits = (!split_loop_count ? MAX_NO_SEEDING_PARTIALS : MAX_NO_REGULAR_PARTIALS);
-			cudaMemcpy(global_alns_host, global_alns_device, max_no_partial_hits*no_to_process*sizeof(barracuda_aln1_t), cudaMemcpyDeviceToHost);
-			report_cuda_error_GPU("[aln_core] Error reading \"global_alns_host\" from GPU.");
-			cudaDeviceSynchronize();
-			report_cuda_error_GPU("[aln_core] cuda error_3.");
-			//if(loopcount==0) print_global_alns(max_no_partial_hits,no_to_process,global_alns_device);
-			if(!split_engage) break;
-
-#if ARRAN_DEBUG_LEVEL > 0
-	fprintf(stderr, "\n[aln_core][split_loop]");
-#endif
-
-			//fprintf(stderr, ":");
-			for(int i=0; i<no_to_process; i++){
-				partial = global_alignment_meta_host + i;
-				final = global_alignment_meta_host_final + partial->sequence_id;
-#if ARRAN_DEBUG_LEVEL > 0
-	if(partial->no_of_alignments==0){
-		init_info_t partial_init = global_init_host[i];
-		fprintf(stderr, "\n[aln_core][split_null] pos: %i k: %llu l: %llu mm: %i gapo: %i gape: %i state: %i seq: %i", partial_init.start_pos, partial_init.lim_k, partial_init.lim_l, partial_init.cur_n_mm, partial_init.cur_n_gapo, partial_init.cur_n_gape, partial_init.cur_state, partial->sequence_id);
-	}
-#endif
-
-				unsigned long long	partial_offset = i*max_no_partial_hits,
-									final_offset = partial->sequence_id*MAX_NO_OF_ALIGNMENTS;
-				for(int j=0; j<partial->no_of_alignments; j++){
-					aln = global_alns_host + partial_offset + j;
-					if(partial->finished){
-						if(final->no_of_alignments==MAX_NO_OF_ALIGNMENTS){
-							break;
-						}
-						final_aln = global_alns_host_final + final_offset + final->no_of_alignments;
-
-						final_aln->k = aln->k;
-						final_aln->l = aln->l;
-						final_aln->n_mm = aln->n_mm;
-						final_aln->n_gapo = aln->n_gapo;
-						final_aln->n_gape = aln->n_gape;
-						final_aln->score = aln->score;
-
-#if ARRAN_DEBUG_LEVEL > 0
-	fprintf(stderr, "\n[aln_core][split_complete] pos: %i k: %llu l: %llu mm: %i gapo: %i gape: %i score: %i", partial->pos, aln->k, aln->l, aln->n_mm, aln->n_gapo, aln->n_gape, aln->score);
-#endif
-
-						if(aln->score < final->best_score){
-							final->best_score = aln->score;
-							final->best_cnt = 0;
-						}
-						if(aln->score==final->best_score){
-							final->best_cnt += aln->best_cnt;
-						}
-
-						final->no_of_alignments++;
-					}
-					else { // partial not finished
-
-						//splice the linked list and add our new node in position to keep the ordering by score
-						//keep a copy of the pointer for quick access
-						if(!bins[aln->score]){
-							init_bin_list	* prev, //used to find the bin with the greatest score < aln->score (i.e. previous one in the sorted list)
-											* new_bin = (init_bin_list*) malloc(sizeof(init_bin_list));
-
-							bins[aln->score] = new_bin;
-							memset(new_bin, 0, sizeof(init_bin_list));
-							new_bin->score = aln->score;
-
-							for(prev = bins[0]; prev->next && prev->next->score < aln->score; prev = prev->next){}
-
-							if(prev->next){
-								new_bin->next = prev->next;
-							}
-#if ARRAN_DEBUG_LEVEL > 0
-		fprintf(stderr, "\n[aln_core][score_list] making bin: %i after %i", aln->score, prev->score);
-#endif
-							prev->next = new_bin;
-						}
-
-						if(SUFFIX_CLUMP_WIDTH && clumping && !split_loop_count){
-							currSeq = suff_ptrs[partial->sequence_id]->seq;
-							do {
-								//NB note currSeq->sequence_id - not partial->sequence_id as with standard runs
-								add_to_process_queue(bins[aln->score], aln, partial, currSeq->sequence_id);
-								currSeq = currSeq->next;
-							}
-							while(currSeq);
-						}
-						else {
-							add_to_process_queue(bins[aln->score], aln, partial, partial->sequence_id);
-						}
-
-					}
-				}
-
-			}
-
-			//fprintf(stderr, ":");
-			init_bin_list * bin = bins[0];
-			bool more_bins = true;
-			int bins_processed=0, bins_to_process=split_loop_count<2 ? 1 : 2;
-			for(no_to_process=0; more_bins && bins_processed<=bins_to_process && no_to_process<process_capacity; no_to_process++){
-				while(!(bin->aln_list)){
-					bins_processed += bin->processed;
-					bin->processed = 0; //for the next loop
-					if(!(bin->next) || bins_processed==bins_to_process){
-						more_bins = false;
-						break;
-					}
-					bin = bin->next;
-				}
-				if(!more_bins){
-					break;
-				}
-
-				init_list * to_queue = bin->aln_list;
-
-				final = global_alignment_meta_host_final + to_queue->init.sequence_id;
-				//***EXACT MATCH CHECK***
-				//to_queue->init.has_exact = final->has_exact;
-				if(final->no_of_alignments){
-					if(
-							final->no_of_alignments==opt->max_aln
-							|| to_queue->init.score > final->best_score + opt->s_mm //worst_tolerated_score will never be high enough
-							|| (to_queue->init.score==final->best_score && final->best_cnt >= opt->max_top2) //best_cnt culling before it is even queued
-					){ //woot! cull the tree!
-#if ARRAN_DEBUG_LEVEL > 0
-		fprintf(stderr, "\n[aln_core][dfs_cull] init_score: %i	final_score: %i", to_queue->init.score, final->best_score);
-#endif
-						bin->aln_list = to_queue->next;
-						free(to_queue);
-						no_to_process--;
-						continue;
-					}
-					to_queue->init.score = final->best_score;
-				}
-				else {
-					to_queue->init.score = best_score; //give as much leeway as possible until alignments have been found and then cull the DFS tree
-					to_queue->init.best_cnt = 0;
-				}
-				bin->processed = 1;
-
-#if ARRAN_DEBUG_LEVEL > 0
-		fprintf(stderr, "\n[aln_core][split_queue] pos: %i k: %llu l: %llu mm: %i gapo: %i gape: %i score: %i bin: %i seq: %i", to_queue->init.start_pos, to_queue->init.lim_k, to_queue->init.lim_l, to_queue->init.cur_n_mm, to_queue->init.cur_n_gapo, to_queue->init.cur_n_gapo, bin->score, bins_processed, to_queue->init.sequence_id);
-#endif
-
-				memcpy(global_init_host + no_to_process, &(to_queue->init), sizeof(init_info_t));
-				bin->aln_list = to_queue->next;
-				free(to_queue);
-			}
-
-			if(no_to_process>0){
-	//			fprintf(stderr, "|");
-#if ARRAN_DEBUG_LEVEL > 0
-		fprintf(stderr, "\n[aln_core][split_process] no_to_process: %i", no_to_process);
-#endif
-				//print_init_host(no_to_process,global_init_host);
-				cudaMemcpy(global_init_device, global_init_host, no_to_process*sizeof(init_info_t), cudaMemcpyHostToDevice);
-				report_cuda_error_GPU("[aln_core] Error_2 copying \"global_init_host\" to GPU.");
-
-				int gridsize = GRID_UNIT * (1 + int (((no_to_process/blocksize) + ((no_to_process%blocksize)!=0))/GRID_UNIT));
-				dim3 dimGrid(gridsize);
-				//struct timeval start2;
-				//gettimeofday (&start2, NULL);
-				cuda_inexact_match_caller<<<dimGrid,dimBlock>>>(global_bwt, no_to_process, global_alignment_meta_device, global_alns_device, global_init_device, global_w_b_device, best_score, split_engage, 0);
-				//fprintf(stderr," 2_cuda_inexact_match_caller<<<(%d,%d,%d)(%d,%d,%d)>>>(,%d,,,,,,,0)\n",
-				//	dimGrid.x,dimGrid.y,dimGrid.z,dimBlock.x,dimBlock.y,dimBlock.z,no_to_process);
-				cudaDeviceSynchronize(); //wait until kernel has had a chance to report error
-				cuda_err = cudaGetLastError();
-				if(int(cuda_err))
-				{
-					fprintf(stderr, "\n[aln_core] CUDA ERROR(s) reported during split kernel run! Last CUDA error message: %s\n[aln_core] Abort!\n", cudaGetErrorString(cuda_err));
-					return;
-				}
-				//if(loopcount==0) print_global_alns(no_to_process,(!split_loop_count ? MAX_NO_SEEDING_PARTIALS : MAX_NO_REGULAR_PARTIALS),global_alns_device);
-				//gettimeofday (&end, NULL);
-				//const double time_used = diff_in_seconds(&end,&start2);
-				//fprintf(stderr, "[aln_core] 2 inexact Kernel speed: %u %g sequences/sec %g\n", no_to_process, no_to_process/time_used, time_used);
-			}
-			split_loop_count++;
-		}
-		while(no_to_process>0);
-
-		//pop everything and free it
-		init_bin_list_t * top = bins[0], * to_free;
-		do {
-			to_free = top;
-			top = to_free->next;
-			free(to_free);
-		} while(top);
-
-		if(SUFFIX_CLUMP_WIDTH){
-			do {
-				do {
-					currSeq = suff_lst->seq;
-					suff_lst->seq = suff_lst->seq->next;
-					free(currSeq);
-				}
-				while(suff_lst->seq);
-				currSuff = suff_lst;
-				suff_lst = suff_lst->next;
-				free(currSuff);
-			}
-			while(suff_lst);
-		}
-
-		if(split_engage){
-			memcpy(global_alignment_meta_host, global_alignment_meta_host_final, no_of_sequences*sizeof(alignment_meta_t));
-			memcpy(global_alns_host, global_alns_host_final, MAX_NO_OF_ALIGNMENTS*no_of_sequences*sizeof(barracuda_aln1_t));
-		}
-
-
-#if DEBUG_LEVEL > 0
-		fprintf(stderr,"\n[aln_debug] Kernel finished, transfering data to host... \n", time_used);
-#else
-		//fprintf(stderr,".");
-#endif
-
-
-
-#if DEBUG_LEVEL > 0
-		if(opt->bwa_output)
-			fprintf(stderr,"[aln_debug] Writing alignment to disk in BWA compatible format...");
-		else
-			fprintf(stderr,"[aln_debug] Writing alignment to disk in old barracuda format...");
-#endif
-		for (int  i = 0; i < run_no_sequences; ++i)
+		// check whether a hit (full sequence when it reaches the last char, i.e. i = 0) is found, if it is, record the alignment information
+		hit_found = 0;
+		if (!i)
 		{
-
-			alignment_meta_t* tmp = global_alignment_meta_host + i;
-			stdout_aln_head(i,&tmp->no_of_alignments);
-			if (tmp->no_of_alignments)
+			hit_found = 1;
+		}else if (!m) // alternatively if no difference is allowed, just do exact match)
+		{
+			if (e_state == STATE_M ||(options_cuda.mode&BWA_MODE_GAPE) || e_n_gape == opt->max_gape)
 			{
-				unsigned long long aln_offset = i*MAX_NO_OF_ALIGNMENTS;
-				barracuda_aln1_t * tmp_aln;
-				if(opt->bwa_output)
+				if (bwt_cuda_match_exact(global_bwt, i, str, &k, &l))
 				{
-					bwt_aln1_t * output;
-					output = (bwt_aln1_t*)malloc(tmp->no_of_alignments*sizeof(bwt_aln1_t));
-					memset(output,0,tmp->no_of_alignments*sizeof(bwt_aln1_t));//avoid undefined bytes in .sai files
-
-					for (int j = 0; j < tmp->no_of_alignments; j++)
-					{
-						tmp_aln = global_alns_host_final + aln_offset + j;
-						bwt_aln1_t * temp_output = output + j;
-						//temp_output->a = tmp->alignment_info[j].a;
-						temp_output->k = tmp_aln->k;
-						temp_output->l = tmp_aln->l;
-						temp_output->n_mm = tmp_aln->n_mm;
-						temp_output->n_gapo = tmp_aln->n_gapo;
-						temp_output->n_gape = tmp_aln->n_gape;
-						temp_output->score = tmp_aln->score;
-					}
-					if(tmp->no_of_alignments > 1) aln_quicksort(output,0,tmp->no_of_alignments-1);
-					stdout_bwt_aln1(output, tmp->no_of_alignments);
-					free(output);
+#if ARRAN_DEBUG_LEVEL > 1
+	printf("\n[aln_core][exact_match] n_aln: %i pos: %i k: %lu l: %lu mm: %i gapo: %i gape: %i state: %i score: %i seq: %i", n_aln, start_pos + len - i, k, l, e_n_mm, e_n_gapo, e_n_gape, e_state, score, init->sequence_id);
+#endif
+					hit_found = 1;
 				}else
 				{
-					barracuda_aln1_t * output;
-					output = (barracuda_aln1_t*)malloc(tmp->no_of_alignments*sizeof(barracuda_aln1_t));
-					memset(output,0,tmp->no_of_alignments*sizeof(barracuda_aln1_t)); //avoid undefined bytes in .sai files
-
-					for (int j = 0; j < tmp->no_of_alignments; j++)
-					{
-						tmp_aln = global_alns_host_final + aln_offset + j;
-						barracuda_aln1_t * temp_output = output + j;
-						//temp_output->a = tmp_aln->a;
-						temp_output->k = tmp_aln->k;
-						temp_output->l = tmp_aln->l;
-						temp_output->n_mm = tmp_aln->n_mm;
-						temp_output->n_gapo = tmp_aln->n_gapo;
-						temp_output->n_gape = tmp_aln->n_gape;
-						temp_output->score = tmp_aln->score;
-					}
-					stdout_barracuda_aln1(output, tmp->no_of_alignments);
-					free(output);
+#if ARRAN_DEBUG_LEVEL > 1
+	printf("\n[aln_core][no_exact] n_aln: %i pos: %i k: %lu l: %lu mm: %i gapo: %i gape: %i state: %i score: %i seq: %i", n_aln, start_pos + len - i, k, l, e_n_mm, e_n_gapo, e_n_gape, e_state, score, init->sequence_id);
+#endif
+					current_stage --;
+					continue; // if there is no hit, then go backwards to parent stage
 				}
 			}
 		}
 
-		gettimeofday (&end, NULL);
-		time_used = diff_in_seconds(&end,&start);
-		total_time_used += time_used;
-		//fprintf(stderr, "[aln_core] Finished outputting alignment information... %0.2fs.\n", time_used);
-		//fprintf (stderr, ".");
-		total_no_of_base_pair+=read_size;
-		total_no_of_sequences+=run_no_sequences;
-		fprintf(stderr, "\n[aln_core] %d reads processed.",(int)(total_no_of_sequences));
-
-		gettimeofday (&start, NULL);
-		loopcount ++;
-	}
-	fprintf(stderr, "\n");
-
-	//report if there is any CUDA error
-	cudaError_t cuda_err = cudaGetLastError();
-	if(int(cuda_err))
-	{
-		fprintf(stderr, "[aln_core] CUDA ERROR(s) reported at end of core loop! Message: %s\n", cudaGetErrorString(cuda_err));
-	}
-
-#if DEBUG_LEVEL > 0
-	fprintf(stderr, "[aln_debug] ERROR message: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-
-	fprintf(stderr, "[aln_core] Finished!\n[aln_core] Total no. of sequences: %u, size in base pair: %u bp, average length %0.2f bp/sequence.\n", (unsigned int)total_no_of_sequences, (unsigned int)total_no_of_base_pair, (float)total_no_of_base_pair/(unsigned int)total_no_of_sequences);
-	fprintf(stderr, "[aln_core] Alignment Speed: %0.2f sequences/sec or %0.2f bp/sec.\n", (float)(total_no_of_sequences/total_time_used), (float)(total_no_of_base_pair/total_time_used));
-	fprintf(stderr, "[aln_core] Total program time: %0.2fs.\n", (float)total_time_used);
-
-	//Free memory
-	cudaFree(global_sequences);
-	free(main_sequences);
-	free(main_suffixes);
-	cudaFree(global_sequences_index);
-	cudaFree(kl_device);
-	free(main_sequences_index);
-	free(kl_host);
-	cudaFree(global_alignment_meta_device);
-	cudaFree(global_alns_device);
-	cudaFree(global_seq_flag_device);
-	free(global_alignment_meta_host);
-	free(global_alns_host);
-	free(global_alignment_meta_host_final);
-	free(global_alns_host_final);
-	free(global_seq_flag_host);
-
-	return;
-}
-
-
-void cuda_alignment_core(const char *prefix, bwa_seqio_t *ks,  gap_opt_t *opt)
-//Determines the availability of CUDA devices and
-//calls core_kernel_loop();
-
-//invokes CUDA kernels cuda_inexact_match_caller
-{
-	// For timing purpose only
-	struct timeval start, end;
-	double time_used;
-	double total_time_used = 0;
-
-
-	fprintf(stderr,"[aln_core] Running %s CUDA mode.\n",PACKAGE_VERSION);
-#if STDOUT_STRING_RESULT == 1
-	fprintf(stdout,"[aln_core] Running %s CUDA mode.\n",PACKAGE_VERSION);
-#endif
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//CUDA options
-	if (opt->max_entries < 0 )
-	{
-		opt->max_entries = 150000;
-	}
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Pick Cuda device
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-	size_t mem_available = 0, total_mem = 0; //, max_mem_available = 0;
-	cudaDeviceProp properties;
-	int num_devices;
-	cudaGetDeviceCount(&num_devices);
-	report_cuda_error_GPU("[core] Error on cudaGetDeviceCount");
-
-	if (!num_devices)
-	{
-		fprintf(stderr,"[aln_core] Cannot find a suitable CUDA device! aborting!\n");
-	}
-
-
-	int sel_device = 0;
-	if (opt->cuda_device == -1)
-	{
-		sel_device = detect_cuda_device();
-		if(sel_device >= 0)
+		if (hit_found)
 		{
-			cudaSetDevice(sel_device);
-			report_cuda_error_GPU("[core] Error on cudaSetDevice");
-			cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
-			report_cuda_error_GPU("[core] Error on cudaFuncCachePreferL1");
-		}
-		else
-		{
-			fprintf(stderr,"[aln_core] Cannot find a suitable CUDA device! aborting!\n");
-			return;
-		}
-	}
-	else if (opt->cuda_device >= 0)
-	{
-		 sel_device = opt->cuda_device;
-		 cudaSetDevice(sel_device);
-		 report_cuda_error_GPU("[core] Error_2 on cudaSetDevice");
-		 cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
-		 report_cuda_error_GPU("[core] Error_2 on cudaFuncCachePreferL1");
-		 cudaGetDeviceProperties(&properties, sel_device);
-		 report_cuda_error_GPU("[core] Error on cudaGetDeviceProperties");
-		 cudaMemGetInfo(&mem_available, &total_mem);
-		 report_cuda_error_GPU("[core] Error on cudaMemGetInfo");
-
-		 fprintf(stderr, "[aln_core] Using specified CUDA device %d %s, memory available %d MB.\n", sel_device, properties.name, int(mem_available>>20));
-
-	}
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Copy bwt occurrences array to from HDD to CPU then to GPU
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-	gettimeofday (&start, NULL);
-	bwtint_t seq_len;
-
-	// pointer to bwt occurrence array in GPU
-	uint32_t * global_bwt = 0;
-
-	cudaMemGetInfo(&mem_available, &total_mem);
-		 report_cuda_error_GPU("[core] Error_2 on cudaMemGetInfo");
-	fprintf(stderr,"[aln_core] Loading BWTs, please wait..\n");
-
-	// total number of bwt_occ structure read in bytes
-	const size_t bwt_read_size = copy_bwts_to_cuda_memory(prefix, &global_bwt, mem_available, &seq_len);
-
-	// copy_bwt_to_cuda_memory
-	// returns 0 if error occurs
-	// mem_available in MiB not in bytes
-
-	#if DEBUG_LEVEL > 0
-	fprintf(stderr,"[aln_debug] copy.. returned %lu\n",bwt_read_size);
-	#endif
-
-	if (!bwt_read_size) return; //break
-
-	gettimeofday (&end, NULL);
-	time_used = diff_in_seconds(&end,&start);
-	total_time_used += time_used;
-	fprintf(stderr, "[aln_core] Finished loading reference sequence assembly, %u MB in %0.2fs (%0.2f MB/s).\n", (unsigned int)bwt_read_size>>20, time_used, ((unsigned int)bwt_read_size>>20)/time_used );
-
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// allocate GPU working memory
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-	//Set memory buffer according to memory available
-	cudaMemGetInfo(&mem_available, &total_mem);
-	report_cuda_error_GPU("[core] Error_3 on cudaMemGetInfo");
-
-	#if DEBUG_LEVEL > 0
-	fprintf(stderr,"[aln_debug] mem left: %d MiB\n", int(mem_available>>20));
-	#endif
-
-	//stop if there isn't enough memory available
-
-	int buffer = SEQUENCE_TABLE_SIZE_EXPONENTIAL;
-	fprintf(stderr,"[aln_core] Memory available for performing alignment: %d MB.\n", (int)(mem_available>>20));
-
-	if ((mem_available>>20) < CUDA_TESLA)
-	{
-		buffer = buffer - 1; //this will half the memory usage by half to 675MB
-		if(mem_available>>20 < (CUDA_TESLA >> 1))
-		{
-			fprintf(stderr,"[aln_core] Not enough memory to perform alignment (min: %d MB).\n", CUDA_TESLA >> 1);
-			return;
-		}
-	}
-	else
-	{
-		if ((mem_available>>20) > 9000) //K40 has about 9GB left after loading human genome
-		{
-			buffer=25;
-			fprintf(stderr,"[aln_core] Sweet! Running with a super enlarged buffer.\n");
-		}
-		else
-		{
-			fprintf(stderr,"[aln_core] Sweet! Running with an enlarged buffer.\n");
-		}
-
-	}
-
-	cudaGetDeviceProperties(&properties, sel_device);
-	report_cuda_error_GPU("[core] Error on cudaGetDeviceProperties2");
-	if (properties.major <= 1 && buffer>21) {
-	  fprintf(stderr,"[aln_core] Barracuda not supported on CUDA compute level %d.%d GPUs! Reducing buffer %d to %d\n",
-		  properties.major,properties.minor,buffer,21);
-	  buffer = 21;
-	}
-	//fprintf(stderr,"[aln_core] buffer is %d.\n",buffer,16);
-
-	//calls core_kernel_loop
-	core_kernel_loop(sel_device, buffer, opt, ks, total_time_used, global_bwt);
-
-	free_bwts_from_cuda_memory(global_bwt);
-
-	return;
-}
-
-//////////////////////////////////////////
-// CUDA detection code
-//////////////////////////////////////////
-
-int bwa_deviceQuery()
-// Detect CUDA devices available on the machine, for quick CUDA test and for multi-se/multi-pe shell scripts
-{
-	int device, num_devices;
-	cudaGetDeviceCount(&num_devices);
-	report_cuda_error_GPU("[core] Error_2 on cudaGetDeviceCount");
-	if (num_devices)
-		{
-			  //fprintf(stderr,"[deviceQuery] Querying CUDA devices:\n");
-			  for (device = 0; device < num_devices; device++)
-			  {
-					  cudaDeviceProp properties;
-					  cudaGetDeviceProperties(&properties, device);
-					  report_cuda_error_GPU("[core] Error_3 on cudaGetDeviceProperties");
-					  fprintf(stdout, "%d ", device);
-					  fprintf(stdout, "%d %d%d\n", int(properties.totalGlobalMem>>20), int(properties.major),  int(properties.minor));
-
-			  }
-			  //fprintf(stderr,"[total] %d\n", device);
-		}
-	return 0;
-}
-
-int detect_cuda_device()
-// Detect CUDA devices available on the machine, used in aln_core and samse_core
-{
-	int num_devices, device = 0;
-	size_t mem_available = 0,
-		   //total_mem = 0,
-		   max_mem_available = 0;
-	cudaGetDeviceCount(&num_devices);
-	report_cuda_error_GPU("[detect_cuda_device] Error_3 on cudaGetDeviceCount");
-	cudaDeviceProp properties;
-	int sel_device = -1;
-
-	if (num_devices >= 1)
-	{
-	     fprintf(stderr, "[detect_cuda_device] Querying CUDA devices:\n");
-		 int max_cuda_cores = 0, max_device = 0;
-		 for (device = 0; device < num_devices; device++)
-		 {
-			  cudaGetDeviceProperties(&properties, device);
-			  report_cuda_error_GPU("[detect_cuda_device] Error_4 on cudaGetDeviceCount");
-			  mem_available = properties.totalGlobalMem;
-			  //cudaMemGetInfo(&mem_available, &total_mem);
-			  fprintf(stderr, "[detect_cuda_device]   Device %d ", device);
-			  fprintf(stderr,"%s ", properties.name);
-			  //calculated by multiprocessors * 8 for 1.x and multiprocessors * 32 for 2.0, *48 for 2.1 and *192 for 3.0
-			  //determine amount of memory available
-				  int cuda_cores = 0;
-				  if (properties.major == 1){
-						  cuda_cores = properties.multiProcessorCount*8;
-
-				  }else if (properties.major == 2){
-					  if (properties.minor == 0){
-						  cuda_cores = properties.multiProcessorCount*32;
-					  }else{
-						  cuda_cores = properties.multiProcessorCount*48;
-					  }
-				  }else if (properties.major ==3)
-				  {
-					  cuda_cores = properties.multiProcessorCount*192;
-				  }
-				  //cuda_cores no longer printed. BL
-
-			  fprintf(stderr,",global memory size %d MB, compute capability %d.%d.\n", int(mem_available>>20), int(properties.major),  int(properties.minor));
-			  if (max_cuda_cores <= cuda_cores) //choose the one with highest number of processors
-			  {
-					  max_cuda_cores = cuda_cores;
-					  if (max_mem_available < mem_available) //choose the one with max memory
-					  {
-						      max_mem_available = mem_available;
-							  max_device = device;
-					  }
-			  }
- 		 }
-		 if (max_mem_available>>20 >= MIN_MEM_REQUIREMENT)
-		 {
-			sel_device = max_device;
-			cudaGetDeviceProperties(&properties, max_device);
-			report_cuda_error_GPU("[detect_cuda_device] Error_5 on cudaGetDeviceCount");
-			fprintf(stderr, "[detect_cuda_device] Using CUDA device %d %s, global memory size %d MB.\n", max_device, properties.name, int(max_mem_available>>20));
+			// action for found hits
+			//int do_add = 1;
+			if (score < best_score)
+			{
+				best_score = score;
+				best_diff = e_n_mm + e_n_gapo + (options_cuda.mode & BWA_MODE_GAPE) * e_n_gape;
+				best_cnt = 0; //reset best cnt if new score is better
+				if (!(options_cuda.mode & BWA_MODE_NONSTOP))
+					max_diff = (best_diff + 1 > opt->max_diff)? opt->max_diff : best_diff + 1; // top2 behaviour
 			}
-		 else
-		 {
-			 fprintf(stderr,"[detect_cuda_device] Cannot find a suitable CUDA device with > %d MB of memory available! aborting!\n", MIN_MEM_REQUIREMENT);
-			 return -1;
-		 }
-	}
-	else
-	{
-		 fprintf(stderr,"[detect_cuda_device] No CUDA device found! aborting!\n");
-		 return -1;
-	}
-	return sel_device;
+			if (score == best_score) best_cnt += l - k + 1;
+
+			if (e_n_gapo)
+			{ // check whether the hit has been found. this may happen when a gap occurs in a tandem repeat
+				// if this alignment was already found, do not add to alignment record array unless the new score is better.
+				for (j = 0; j < n_aln; ++j)
+					if (alns[j].k == k && alns[j].l == l) break;
+				if (j < n_aln)
+				{
+					if (score < alns[j].score)
+						{
+							alns[j].score = score;
+							alns[j].n_mm = e_n_mm;
+							alns[j].n_gapo = e_n_gapo;
+							alns[j].n_gape = e_n_gape;
+							alns[j].best_cnt = best_cnt;
+              hits[j] = true;
+						}
+					//do_add = 0;
+					hit_found = 0;
+				}
+			}
+
+			if (hit_found)
+			{ // append result the alignment record array
+				gap_stack_shadow_cuda(l - k + 1, bwt->seq_len, position_data[current_stage].y, widths, bids);
+					// record down number of mismatch, gap open, gap extension and a??
+
+					alns[n_aln].n_mm = entries_scores[current_stage].x;
+					alns[n_aln].n_gapo = entries_scores[current_stage].y;
+					alns[n_aln].n_gape = entries_scores[current_stage].z;
+					// the suffix array interval
+					alns[n_aln].k = k;
+					alns[n_aln].l = l;
+					alns[n_aln].score = score;
+					alns[n_aln].best_cnt = best_cnt;
+          hits[n_aln] = true;
+#if ARRAN_DEBUG_LEVEL > 1
+					printf("\n[aln_core][hit_found] n_aln: %i pos: %i k: %lu l: %lu mm: %i gapo: %i gape: %i state: %i score: %i seq: %i", n_aln, start_pos + len - i, k, l, e_n_mm, e_n_gapo, e_n_gape, e_state, score, init->sequence_id);
+#endif
+
+					++n_aln;
+
+			}
+			current_stage --;
+			continue;
+		}
+		// proceed and evaluate the next base on sequence
+		--i;
+
+		// retrieve Occurrence values and determine all the eligible daughter nodes, done only once at the first instance and skip when it is revisiting the stage
+		bwtint_t ks[MAX_ALN_LENGTH][4], ls[MAX_ALN_LENGTH][4];
+		char eligible_cs[MAX_ALN_LENGTH][5], no_of_eligible_cs=0;
+
+		if(!done_push_types[current_stage].x)
+		{
+			if(k) {
+				cuda_cnt_k = bwt_cuda_occ4(global_bwt, k-1);
+			}
+			ulong4 cuda_cnt_l = bwt_cuda_occ4(global_bwt, l);
+			ks[current_stage][0] = bwt->L2[0] + cuda_cnt_k.x + 1;
+			ls[current_stage][0] = bwt->L2[0] + cuda_cnt_l.x;
+			ks[current_stage][1] = bwt->L2[1] + cuda_cnt_k.y + 1;
+			ls[current_stage][1] = bwt->L2[1] + cuda_cnt_l.y;
+			ks[current_stage][2] = bwt->L2[2] + cuda_cnt_k.z + 1;
+			ls[current_stage][2] = bwt->L2[2] + cuda_cnt_l.z;
+			ks[current_stage][3] = bwt->L2[3] + cuda_cnt_k.w + 1;
+			ls[current_stage][3] = bwt->L2[3] + cuda_cnt_l.w;
+
+			if (ks[current_stage][0] <= ls[current_stage][0])
+			{
+				eligible_cs[current_stage][no_of_eligible_cs++] = 0;
+			}
+			if (ks[current_stage][1] <= ls[current_stage][1])
+			{
+				eligible_cs[current_stage][no_of_eligible_cs++] = 1;
+			}
+			if (ks[current_stage][2] <= ls[current_stage][2])
+			{
+				eligible_cs[current_stage][no_of_eligible_cs++] = 2;
+			}
+			if (ks[current_stage][3] <= ls[current_stage][3])
+			{
+				eligible_cs[current_stage][no_of_eligible_cs++] = 3;
+			}
+			eligible_cs[current_stage][4] = no_of_eligible_cs;
+
+#if ARRAN_DEBUG_LEVEL > 1
+			if(start_pos + len - i ARRAN_DEBUG_POSITION){
+				printf("\nScore / Worst: %i/%i", score, worst_tolerated_score);
+				printf("\n%i %c i: %i k: %lu l: %lu OK: %i\n", start_pos + len - i, bases[str[i]], i, k, l, no_of_eligible_cs);
+				for(int q=0; q<len; q++){
+					printf("%c", bases[str[q]]);
+				}
+				for(int q=0; q<4; q++){
+					printf("\n%c	l: %lu	k: %lu %s", bases[q], ks[current_stage][q], ls[current_stage][q], ks[current_stage][q]<=ls[current_stage][q] ? "OK" : "");
+				}
+			}
+#endif
+		}else
+		{
+			no_of_eligible_cs = eligible_cs[current_stage][4];
+		}
+
+		// test whether difference is allowed
+		allow_diff = 1;
+		allow_M = 1;
+
+		if (i)
+		{
+			if (bids[i-1+remain] > m -1)
+			{
+				allow_diff = 0;
+				//printf("\n...%i %i	%i", real_pos, bids[i-1+remain], m);
+			}else if (bids[i-1+remain] == m-1 && bids[i+remain] == m-1 && widths[i-1+remain] == widths[i+remain])
+			{
+				allow_M = 0;
+			}
+		}
+
+		//donepushtypes stores information for each stage whether a prospective daughter node has been evaluated or not
+		//donepushtypes[current_stage].x  exact match, =0 not done, =1 done
+		//donepushtypes[current_stage].y  mismatches, 0 not done, =no of eligible cs with a k<=l done
+		//donepushtypes[current_stage].z  deletions, =0 not done, =no of eligible cs with a k<=l done
+		//donepushtypes[current_stage].w  insertions match, =0 not done, =1 done
+		//.z and .w are shared among gap openings and extensions as they are mutually exclusive
+
+
+		////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// exact match
+		////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+		//try exact match first
+		if (!done_push_types[current_stage].x)
+		{
+#if DEBUG_LEVEL >8
+			printf("trying exact\n");
+#endif
+			int c = str[i];
+
+			done_push_types[current_stage].x = 1;
+			if (c < 4)
+			{
+#if DEBUG_LEVEL > 8
+				printf("c:%i, i:%i\n",c,i);
+				printf("k:%u\n",ks[current_stage][c]);
+				printf("l:%u\n",ls[current_stage][c]);
+#endif
+
+				if (ks[current_stage][c] <= ls[current_stage][c])
+				{
+					#if DEBUG_LEVEL > 8
+					printf("ex match found\n");
+					#endif
+
+#if ARRAN_DEBUG_LEVEL > 1 && ARRAN_PRINT_DFS > 0 && ARRAN_PRINT_EXACT_MATCHES > 0
+	printf("\n--- E %i %c stg: %i", start_pos + len - i, bases[c], current_stage);
+#endif
+					cuda_dfs_push(entries_info, entries_scores, position_data, done_push_types, i, ks[current_stage][c], ls[current_stage][c], e_n_mm, e_n_gapo, e_n_gape, STATE_M, 0, current_stage+1);
+					current_stage++;
+					continue;
+				}
+			}
+		}else if (score == worst_tolerated_score)
+		{
+			allow_diff = 0;
+		}
+
+		if (allow_diff)
+		{
+		#if DEBUG_LEVEL > 8
+			printf("trying inexact...\n");
+		#endif
+			////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			// mismatch
+			////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+			if (done_push_types[current_stage].y < no_of_eligible_cs) //check if done before
+			{
+				int c = eligible_cs[current_stage][(done_push_types[current_stage].y)];
+
+				done_push_types[current_stage].y++;
+				if(c==str[i]){
+					c = eligible_cs[current_stage][(done_push_types[current_stage].y)];
+					done_push_types[current_stage].y++;
+				}
+				if (allow_M) // daughter node - mismatch
+				{
+					if (score + options_cuda.s_mm <= worst_tolerated_score) //skip if prospective entry is beyond worst tolerated
+					{
+						if (done_push_types[current_stage].y <= no_of_eligible_cs)
+						{
+#if ARRAN_DEBUG_LEVEL > 1 && ARRAN_PRINT_DFS > 0 && ARRAN_PRINT_MISMATCHES > 0
+	printf("\n### M %i %c stg: %i", start_pos + len - i, bases[c], current_stage);
+#endif
+							cuda_dfs_push(entries_info, entries_scores, position_data, done_push_types, i, ks[current_stage][c], ls[current_stage][c], e_n_mm + 1, e_n_gapo, e_n_gape, STATE_M, 1, current_stage+1);
+							current_stage++;
+							continue;
+						}
+					}
+				}
+			}
+
+
+
+				////////////////////////////////////////////////////////////////////////////////////////////////////////////
+				// Indels (Insertions/Deletions)
+				////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define USE_OLD_GAP_CODE 0
+#if USE_OLD_GAP_CODE==0
+
+			unsigned int tmp = (options_cuda.mode & BWA_MODE_LOGGAP)? (int_log2_cuda(e_n_gape + e_n_gapo))>>1 + 1 : e_n_gapo + e_n_gape;
+
+			signed char * done_type;
+			uint2 push_data;
+			uchar4 gap_meta, gap_meta2;
+
+#define GAP_TYPE gap_meta.x
+#define GAP_PENALTY gap_meta.y
+#define GAP_COUNT gap_meta.z
+#define GAP_LIMIT gap_meta.w
+#define GAP_INC gap_meta2.x
+#define TYPE_LIMIT gap_meta2.y
+#define DELTA_I gap_meta2.z
+#define DEL_MAX gap_meta2.w
+#define PUSH_K push_data.x
+#define PUSH_L push_data.y
+
+			if(e_state){ //extending a gap
+				GAP_TYPE = e_state;
+				GAP_PENALTY = options_cuda.s_gape;
+				GAP_COUNT = e_n_gape;
+				GAP_LIMIT = opt->max_gape;
+				GAP_INC = 0;
+			}
+			else { //opening a gap
+				GAP_TYPE = !done_push_types[current_stage].w ? STATE_I : STATE_D;
+				GAP_PENALTY = options_cuda.s_gapo;
+				GAP_COUNT = e_n_gapo;
+				GAP_LIMIT = allow_gap;
+				GAP_INC = 1;
+			}
+
+			if(GAP_TYPE & STATE_I){
+				done_type = &(done_push_types[current_stage].w);
+				TYPE_LIMIT = 1;
+				PUSH_K = k;
+				PUSH_L = l;
+				DELTA_I = 0;
+				DEL_MAX = 1;
+			}
+			else {
+				done_type = &(done_push_types[current_stage].z);
+				TYPE_LIMIT = no_of_eligible_cs;
+				PUSH_K =	ks[current_stage][(eligible_cs[current_stage][(done_push_types[current_stage].z)])];
+				PUSH_L =	ls[current_stage][(eligible_cs[current_stage][(done_push_types[current_stage].z)])];
+				DELTA_I = 1;
+				// we only checked max_del_occ when extending a deletion and !e_state means we are opening a gap
+				DEL_MAX = !e_state || e_n_gape + e_n_gapo < max_diff || l - k < options_cuda.max_del_occ;
+			}
+
+			(*done_type)++;
+			// the order of these if-statements has been optimised through trial & error / bubble sort
+			if(i + remain >= options_cuda.indel_end_skip + tmp && start_pos + len - i >= options_cuda.indel_end_skip + tmp){
+				if(score+GAP_PENALTY <= worst_tolerated_score){
+					if(GAP_COUNT < GAP_LIMIT){
+						if(*done_type <= TYPE_LIMIT){
+							if(DEL_MAX){
+#if ARRAN_DEBUG_LEVEL > 1 && ARRAN_PRINT_DFS > 0 && ARRAN_PRINT_GAPS > 0
+	printf("\n@@@ G%s %s %i	stg: %i", e_state ? "E" : "O", GAP_TYPE & STATE_I ? "I" : "D", start_pos + len - i, current_stage);
+#endif
+								current_stage++;
+								cuda_dfs_push(entries_info, entries_scores, position_data, done_push_types, i + DELTA_I, PUSH_K, PUSH_L, e_n_mm, e_n_gapo + GAP_INC, e_n_gape + 1 - GAP_INC, GAP_TYPE, 1, current_stage);
+								continue;
+							}
+						}
+					}
+				}
+			}
+
+
+
+#else
+
+			unsigned int occ;
+			//int allow_gap = 0;
+			if(allow_gap){
+				if (!e_state) // daughter node - opening a gap insertion or deletion
+				{
+					if (score + options_cuda.s_gapo <=worst_tolerated_score) //skip if prospective entry is beyond worst tolerated
+					{
+						if (e_n_gapo < opt->max_gapo)
+						{
+							if (!done_push_types[current_stage].w)
+							{	//insertions
+								done_push_types[current_stage].w = 1;
+								unsigned int tmp = (options_cuda.mode & BWA_MODE_LOGGAP)? (int_log2_cuda(e_n_gape + e_n_gapo))>>1 + 1 : e_n_gapo + e_n_gape;
+								if (i >= options_cuda.indel_end_skip + tmp && len - i >= options_cuda.indel_end_skip + tmp)
+								{
+										current_stage++;
+										cuda_dfs_push(entries_info, entries_scores, position_data, done_push_types, i, k, l, e_n_mm, e_n_gapo + 1, e_n_gape, STATE_I, 1, current_stage);
+										continue;
+								}
+							}
+							else if (done_push_types[current_stage].z < no_of_eligible_cs)  //check if done before
+							{	//deletions
+								unsigned int tmp = (options_cuda.mode & BWA_MODE_LOGGAP)? (int_log2_cuda(e_n_gape + e_n_gapo))>>1 + 1 : e_n_gapo + e_n_gape;
+								if(i + remain >= options_cuda.indel_end_skip + tmp && real_pos >= options_cuda.indel_end_skip + tmp)
+								{
+									int c = eligible_cs[current_stage][(done_push_types[current_stage].z)];
+									done_push_types[current_stage].z++;
+									cuda_dfs_push(entries_info, entries_scores, position_data, done_push_types, i + 1, ks[current_stage][c], ls[current_stage][c], e_n_mm, e_n_gapo + 1, e_n_gape, STATE_D, 1, current_stage+1);
+									current_stage++; //advance stage number by 1
+									continue;
+								}
+								else
+								{
+									done_push_types[current_stage].z++;
+								}
+							}
+						}
+					}
+				}else if (e_state == STATE_I) //daughter node - extend an insertion entry
+				{
+					if(!done_push_types[current_stage].w)  //check if done before
+					{
+						done_push_types[current_stage].w = 1;
+						if (e_n_gape < opt->max_gape)  //skip if no of gap ext is beyond limit
+						{
+							if (score + options_cuda.s_gape <=worst_tolerated_score) //skip if prospective entry is beyond worst tolerated
+							{
+								unsigned int tmp = (options_cuda.mode & BWA_MODE_LOGGAP)? (int_log2_cuda(e_n_gape + e_n_gapo))>>1 + 1 : e_n_gapo + e_n_gape;
+								if (i >= options_cuda.indel_end_skip + tmp && len - i >= options_cuda.indel_end_skip + tmp)
+								{
+									current_stage++; //advance stage number by 1
+									cuda_dfs_push(entries_info, entries_scores,  position_data, done_push_types, i, k, l, e_n_mm, e_n_gapo, e_n_gape + 1, STATE_I, 1, current_stage);
+									continue; //skip the rest and proceed to next stage
+								}
+							}
+						}
+					}
+				}else if (e_state == STATE_D) //daughter node - extend a deletion entry
+				{
+					occ = l - k + 1;
+					if (done_push_types[current_stage].z < no_of_eligible_cs)  //check if done before
+					{
+						if (e_n_gape < opt->max_gape) //skip if no of gap ext is beyond limit
+						{
+							if (score + options_cuda.s_gape <=worst_tolerated_score) //skip if prospective entry is beyond worst tolerated
+							{
+								if (e_n_gape + e_n_gapo < max_diff || occ < options_cuda.max_del_occ)
+								{
+									unsigned int tmp = (options_cuda.mode & BWA_MODE_LOGGAP)? (int_log2_cuda(e_n_gape + e_n_gapo))>>1 + 1 : e_n_gapo + e_n_gape;
+
+									if (i >= options_cuda.indel_end_skip + tmp && len - i >= options_cuda.indel_end_skip + tmp)
+									{
+										int c = eligible_cs[current_stage][(done_push_types[current_stage].z)];
+										done_push_types[current_stage].z++;
+										cuda_dfs_push(entries_info, entries_scores, position_data, done_push_types, i + 1, ks[current_stage][c], ls[current_stage][c], e_n_mm, e_n_gapo, e_n_gape + 1, STATE_D, 1, current_stage+1);
+										current_stage++; //advance stage number
+										continue;
+									}
+								}
+							}
+						}
+						else
+						{
+							done_push_types[current_stage].z++;
+						}
+					}
+				} //end else if (e_state == STATE_D)
+			} //end allow_gap
+
+//end USE_OLD_GAP_CODE==1
+#endif
+
+		}//end if (!allow_diff)
+
+		current_stage--;
+
+	} //end do while loop
+
+	aln->no_of_alignments = n_aln;
+	aln->best_cnt = best_cnt;
+
+#if ARRAN_DEBUG_LEVEL > 1
+	printf("\n[aln_core][end_of_split_pass] n_aln: %i", n_aln);
+#endif
+//	printf("no of alignments %u\n",n_aln);
+
+	return best_score;
 }
 
-//////////////////////////////////////////
-// End CUDA detection code
-//////////////////////////////////////////
-//END CUDA DEVICE CODE
+__global__ void cuda_inexact_match_caller(uint32_t * global_bwt, int no_of_sequences, alignment_meta_t* global_alignment_meta, barracuda_aln1_t* global_alns, init_info_t* global_init, widths_bids_t *global_w_b, int best_score, char split_engage, char clump)
+//CUDA kernal for inexact match on both strands
+//calls bwt_cuda_device_calculate_width to determine the boundaries of the search space
+//and then calls dfs_match to search for alignment using dfs approach
+{
+	// Block ID for CUDA threads, as there is only 1 thread per block possible for now
+	unsigned int blockId = blockIdx.x * blockDim.x + threadIdx.x;
 
+	//Core function
+	// work on valid sequence only
+	if ( blockId < no_of_sequences ) {
+
+		unsigned char local_complemented_sequence[SEQUENCE_HOLDER_LENGTH];
+		alignment_meta_t local_alignment_meta;
+		barracuda_aln1_t local_alns[MAX_NO_PARTIAL_HITS];
+    bool hits[MAX_NO_PARTIAL_HITS];
+		widths_bids_t local_w_b;
+		init_info_t local_init;
+
+		memset(&local_alignment_meta, 0, sizeof(alignment_meta_t));
+		memset(&local_alns, 0, MAX_NO_PARTIAL_HITS*sizeof(barracuda_aln1_t));
+    memset(&hits, false, MAX_NO_PARTIAL_HITS*sizeof(bool));
+		local_init = global_init[blockId];
+
+		local_alignment_meta.sequence_id = local_init.sequence_id;
+		local_w_b = global_w_b[local_init.sequence_id];
+
+		//initialize local options for each query sequence
+		gap_opt_t local_options = options_cuda;
+
+		//get sequences from texture memory
+		const uint2 sequence_info = tex1Dfetch(sequences_index_array, local_init.sequence_id);
+
+		const unsigned int sequence_offset = sequence_info.x;
+		const unsigned short sequence_length = sequence_info.y;
+		unsigned int last_read = ~0;
+		unsigned int last_read_data = 0;
+		unsigned int pass_length;
+		char seeding = local_init.start_pos<local_options.seed_len;
+
+		if(split_engage){
+			if(seeding){
+				pass_length = min(MAX_SEEDING_PASS_LENGTH, local_options.seed_len - local_init.start_pos);
+			}
+			else {
+				pass_length = min(MAX_REGULAR_PASS_LENGTH, sequence_length - local_init.start_pos);
+			}
+		}
+		else {
+			pass_length = sequence_length;
+		}
+
+		if(clump){
+			pass_length = min(pass_length, SUFFIX_CLUMP_WIDTH);
+		}
+
+		//the data is packed in a way that requires us to cycle through and change last_read and last_read_data
+		int cycle_i = sequence_length - local_init.start_pos - pass_length;
+		for(int i=0; i<cycle_i; i++){
+			read_char(sequence_offset + i, &last_read, &last_read_data);
+		}
+
+		for (int i = 0; i < pass_length; i++){
+			unsigned char c = read_char(sequence_offset + cycle_i + i, &last_read, &last_read_data );
+			//local_sequence[i] = c;
+			local_complemented_sequence[i] = c > 3 ? 4 : 3 - c;
+		}
+
+		local_alignment_meta.finished = (local_init.start_pos+pass_length == sequence_length);
+
+		//initialize local options
+		if (options_cuda.fnr > 0.0) local_options.max_diff = bwa_cuda_cal_maxdiff(sequence_length, BWA_AVG_ERR, options_cuda.fnr);
+		//make sure when max diff < seed diff will override seed diff settings
+		if (local_options.max_seed_diff > local_options.max_diff) local_options.max_seed_diff = local_options.max_diff;
+		if (local_options.max_diff < options_cuda.max_gapo) local_options.max_gapo = local_options.max_diff;
+
+		//Align with two the 2-way bwt reference
+		local_alignment_meta.best_score = local_init.score = cuda_dfs_match(global_bwt, pass_length, local_complemented_sequence, local_w_b.widths, local_w_b.bids, &local_options, &local_alignment_meta, local_alns, &local_init, best_score, sequence_length, seeding, hits);
+		//local_alignment_meta.best_score = local_init.score = cuda_dfs_match(global_bwt, pass_length, local_complemented_sequence, local_w_b.widths, local_w_b.bids, &local_options, &local_alignment_meta, local_alns, &local_init, best_score, sequence_length, seeding, NULL);
+
+		// copy alignment info to global memory
+		global_alignment_meta[blockId] = local_alignment_meta;
+		int max_no_partial_hits = seeding ? MAX_NO_SEEDING_PARTIALS : MAX_NO_REGULAR_PARTIALS;
+    
+    for (int i = 0; i < max_no_partial_hits; ++i) {
+      if (hits[i]) {
+        *(global_alns + blockId * max_no_partial_hits + i) = local_alns[i];
+      } else {
+        *(global_alns + blockId * max_no_partial_hits + i) = barracuda_aln1_t{};
+      }
+    }
+		//memcpy(global_alns + blockId*max_no_partial_hits, local_alns, max_no_partial_hits*sizeof(barracuda_aln1_t));
+
+	}
+	return;
+}
+
+__global__ void cuda_prepare_widths(uint32_t * global_bwt, int no_of_sequences, widths_bids_t * global_w_b, char * global_N_too_high)
+{
+	unsigned int blockId = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if ( blockId < no_of_sequences ) {
+
+		widths_bids_t local_w_b;
+		unsigned char local_sequence[MAX_SEQUENCE_LENGTH];
+
+		gap_opt_t local_options = options_cuda;
+
+		const uint2 sequence_info = tex1Dfetch(sequences_index_array, blockId);
+
+		const unsigned int sequence_offset = sequence_info.x;
+		const unsigned short sequence_length = sequence_info.y;
+		unsigned int last_read = ~0;
+		unsigned int last_read_data;
+		int N = 0;
+
+		if (options_cuda.fnr > 0.0) local_options.max_diff = bwa_cuda_cal_maxdiff(sequence_length, BWA_AVG_ERR, options_cuda.fnr);
+
+		for(int i=0; i<sequence_length; ++i)
+		{
+			unsigned char c = read_char(sequence_offset + i, &last_read, &last_read_data );
+			local_sequence[i] = c;
+			if(c>3) N++;
+			if(N>local_options.max_diff) break;
+		}
+
+		if(N<=local_options.max_diff){
+			global_N_too_high[blockId] = 0;
+			bwt_cuda_device_calculate_width(global_bwt, local_sequence, local_w_b.widths, local_w_b.bids, 0, sequence_length - local_options.seed_len - 1);
+			bwt_cuda_device_calculate_width(global_bwt, local_sequence, local_w_b.widths, local_w_b.bids, sequence_length - local_options.seed_len - 1, sequence_length);
+		}
+		else {
+			global_N_too_high[blockId] = 1;
+		}
+
+		//for(int i = 0; i < sequence_length; ++i){
+			//printf("%u	%d	%u	%u\n",i,local_sequence[i],local_w_b.bids[i],local_w_b.widths[i]);
+		//}
+
+		global_w_b[blockId] = local_w_b;
+	}
+	return;
+}
+
+#if USE_PETR_SPLIT_KERNEL > 0
+WBL 26 Feb 2016 not in use.... /*
+//TODO: remove reverse alignment
+__global__ void cuda_split_inexact_match_caller(int no_of_sequences, unsigned short max_sequence_length, alignment_meta_t* global_alignment_store, unsigned char cuda_opt)
+//CUDA kernal for inexact match on a specified strand
+// modified for split kernels
+//calls bwt_cuda_device_calculate_width to determine the boundaries of the search space
+//and then calls dfs_match to search for alignment using dfs approach
+{
+
+	// Block ID for CUDA threads, as there is only 1 thread per block possible for now
+	unsigned int blockId = blockIdx.x * blockDim.x + threadIdx.x;
+	//Local store for sequence widths bids and alignments
+	unsigned int local_sequence_widths[MAX_SEQUENCE_LENGTH];
+	unsigned char local_sequence_bids[MAX_SEQUENCE_LENGTH];
+	unsigned char local_sequence[MAX_SEQUENCE_LENGTH];
+	unsigned char local_rc_sequence[MAX_SEQUENCE_LENGTH];
+
+
+
+	alignment_meta_t local_alignment_store;
+
+	//fetch the alignment store from memory
+	local_alignment_store = global_alignment_store[blockId];
+
+	int max_aln = options_cuda.max_aln;
+	//initialize local options for each query sequence
+	gap_opt_t local_options = options_cuda;
+
+	const int pass_length = (options_cuda.seed_len > PASS_LENGTH)? options_cuda.seed_len : PASS_LENGTH;
+	const int split_engage = pass_length + 6;
+
+	//Core function
+	// work on valid sequence only
+	if ( blockId < no_of_sequences )
+	{
+#if DEBUG_LEVEL > 5
+		printf("start..\n");
+#endif
+
+		//get sequences from texture memory
+		//const uint2 sequence_info = tex1Dfetch(sequences_index_array, blockId);
+
+		// sequences no longer align with the block ids
+		const uint2 sequence_info = tex1Dfetch(sequences_index_array, local_alignment_store.sequence_id);
+
+
+		const unsigned int sequence_offset = sequence_info.x;
+		unsigned int last_read = ~0;
+		unsigned int last_read_data;
+
+		//calculate new length - are we dealing with the last bit?
+		int start_pos = local_alignment_store.start_pos;
+
+		unsigned short process_length;
+
+		// decide if this is the last part to process
+		if (!start_pos && sequence_info.y >= split_engage) {
+			// first round and splitting is going to happen, forcing if necessary
+			process_length = min(sequence_info.y, pass_length);
+		} else {
+			// subsequent rounds or splitting is not happening
+			if (sequence_info.y - start_pos < pass_length * 2) {
+				// mark this pass as last
+				local_alignment_store.finished = 1;
+				if (sequence_info.y - start_pos > pass_length) {
+					// "natural" splitting finish
+					process_length = min(sequence_info.y, sequence_info.y%pass_length + pass_length);
+				} else {
+					// last pass of "forced" splitting
+					process_length = sequence_info.y - start_pos;
+				}
+
+			} else {
+				process_length = min(sequence_info.y, pass_length);
+			}
+		}
+
+
+#if DEBUG_LEVEL > 7
+		printf("process length: %d, start_pos: %d, sequence_length: %d\n", process_length, start_pos, sequence_info.y);
+#endif
+		//const unsigned short sequence_length = (!start_pos) ? process_length : sequence_info.y;
+
+		// TODO can be slightly sped up for one directional matching
+		for (int i = 0; i < process_length; ++i)
+		{
+			//offsetting works fine, again, from the back of the seq.
+			// copies from the end to the beginning
+			unsigned char c = read_char(sequence_offset + i + (sequence_info.y- process_length - start_pos), &last_read, &last_read_data );
+
+			local_sequence[i] = c;
+
+			if (local_options.mode & BWA_MODE_COMPREAD)
+			{
+				local_rc_sequence[i] = (c > 3)? c : (3 - c);
+			}else
+			{
+				local_rc_sequence[i] = c;
+			}
+		}
+
+
+#define SEEDING 0
+
+		if (options_cuda.fnr > 0.0) {
+			//tighten the search for the first bit of sequence
+#if SEEDING == 1
+			if (!start_pos) {
+				local_options.max_diff = bwa_cuda_cal_maxdiff(sequence_length, BWA_AVG_ERR, options_cuda.fnr);
+
+			} else {
+#endif
+				local_options.max_diff = bwa_cuda_cal_maxdiff(sequence_info.y, BWA_AVG_ERR, options_cuda.fnr);
+#if SEEDING == 1
+			}
+#endif
+		}
+
+//		// TODO remove debug out
+//		if (blockId == 1) {
+//			printf("\n\nlocal maxdiff: %d\n", local_options.max_diff);
+//			printf("local seed diff: %d\n\n", local_options.max_seed_diff);
+//		}
+
+		if (local_options.max_diff < options_cuda.max_gapo) local_options.max_gapo = local_options.max_diff;
+
+		//the worst score is lowered from +1 (bwa) to +0 to tighten the search space esp. for long reads
+
+		int worst_score = aln_score2(local_options.max_diff, local_options.max_gapo, local_options.max_gape, local_options);
+
+
+#if DEBUG_LEVEL > 6
+		printf("worst score: %d\n", worst_score);
+#endif
+
+		//test if there is too many Ns, if true, skip everything and return 0 number of alignments.
+		int N = 0;
+		for (int i = 0 ; i < process_length; ++i)
+		{
+			if (local_sequence[i] > 3) ++N;
+			if (N > local_options.max_diff)
+			{
+#if DEBUG_LEVEL > 7
+				printf("Not good quality seq, quitting kernel.\n");
+#endif
+				global_alignment_store[blockId].no_of_alignments = 0;
+				return;
+			}
+		}
+
+		int sequence_type = 0;
+		sequence_type = (cuda_opt == 2) ? 1 : local_alignment_store.init.sequence_type;
+		// Calculate w
+		syncthreads();
+
+#if DEBUG_LEVEL > 7
+		printf("calc width..\n");
+#endif
+
+		// properly resume for reverse alignment
+		if (sequence_type == 1) {
+#if DEBUG_LEVEL > 6
+			printf("reverse alignment...");
+#endif
+			//Align to forward reference sequence
+			//bwt_cuda_device_calculate_width(local_rc_sequence, sequence_type, local_sequence_widths, local_sequence_bids, process_length);
+			cuda_split_dfs_match(process_length, local_rc_sequence, sequence_type, local_sequence_widths, local_sequence_bids, &local_options, &local_alignment_store, worst_score, max_aln);
+		} else {
+#if DEBUG_LEVEL > 6
+			printf("normal alignment...");
+#endif
+			//bwt_cuda_device_calculate_width(local_sequence, sequence_type, local_sequence_widths, local_sequence_bids, process_length);
+			cuda_split_dfs_match(process_length, local_sequence, sequence_type, local_sequence_widths, local_sequence_bids, &local_options, &local_alignment_store, worst_score, max_aln);
+		}
+
+
+		// copy alignment info to global memory
+		global_alignment_store[blockId] = local_alignment_store;
+
+		// now align the second strand, only during the first run, subsequent runs do not execute this part
+		if (!start_pos && !cuda_opt) {
+			int no_aln = local_alignment_store.no_of_alignments;
+
+			sequence_type = 1;
+			// Calculate w
+			syncthreads();
+			//bwt_cuda_device_calculate_width(local_rc_sequence, sequence_type, local_sequence_widths, local_sequence_bids, process_length);
+
+			//Align to reverse reference sequence
+			syncthreads();
+			cuda_split_dfs_match(process_length, local_rc_sequence, sequence_type, local_sequence_widths, local_sequence_bids, &local_options, &local_alignment_store, worst_score, max_aln);
+#if DEBUG_LEVEL > 6
+			printf("local_alignment_store.no_of_alignments: %d\n", local_alignment_store.no_of_alignments);
+#endif
+
+			// copy alignment info to global memory
+			#if OUTPUT_ALIGNMENTS == 1
+			short rc_no_aln = 0;
+			while (rc_no_aln <= (max_aln + max_aln - no_aln) && rc_no_aln < local_alignment_store.no_of_alignments)
+			{
+				global_alignment_store[blockId].alignment_info[no_aln + rc_no_aln] = local_alignment_store.alignment_info[rc_no_aln];
+				rc_no_aln++;
+			}
+			global_alignment_store[blockId].no_of_alignments = local_alignment_store.no_of_alignments + no_aln;
+			#endif // OUTPUT_ALIGNMENTS == 1
+		}
+#if DEBUG_LEVEL > 6
+		printf("kernel finished\n");
+#endif
+	}
+
+	/*if (blockId < 5) {
+		for (int x = 0; x<len; x++) {
+			printf(".%d",str[x]);
+		}
+	}*/
+
+	return;
+}
+#endif
 
