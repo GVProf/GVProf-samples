@@ -1,0 +1,47 @@
+diff --git a/src/QMCWaveFunctions/Fermion/MatrixDelayedUpdateCUDA.h b/src/QMCWaveFunctions/Fermion/MatrixDelayedUpdateCUDA.h
+index dbe9ff2ab..814480711 100644
+--- a/src/QMCWaveFunctions/Fermion/MatrixDelayedUpdateCUDA.h
++++ b/src/QMCWaveFunctions/Fermion/MatrixDelayedUpdateCUDA.h
+@@ -609,24 +609,26 @@ public:
+     const int norb = psiMinv.rows();
+     const int lda  = psiMinv.cols();
+     const int nw   = engines.size();
+-    updateInv_buffer_H2D.resize(sizeof(T*) * 6 * nw);
+-    resize_fill_constant_arrays(nw);
++    if ((sizeof(T*) * 6 * nw) > updateRow_buffer_H2D.size()) {
++      updateInv_buffer_H2D.resize(sizeof(T*) * 6 * nw);
++      resize_fill_constant_arrays(nw);
+ 
+-    Matrix<T*> ptr_buffer(reinterpret_cast<T**>(updateInv_buffer_H2D.data()), 6, nw);
+-    for (int iw = 0; iw < nw; iw++)
+-    {
+-      This_t& engine    = engines[iw];
+-      ptr_buffer[0][iw] = engine.U_gpu.data();
+-      ptr_buffer[1][iw] = engine.psiMinv.device_data();
+-      ptr_buffer[2][iw] = engine.tempMat_gpu.data();
+-      ptr_buffer[3][iw] = reinterpret_cast<T*>(engine.delay_list_gpu.data());
+-      ptr_buffer[4][iw] = engine.V_gpu.data();
+-      ptr_buffer[5][iw] = engine.Binv_gpu.data();
+-    }
++      Matrix<T*> ptr_buffer(reinterpret_cast<T**>(updateInv_buffer_H2D.data()), 6, nw);
++      for (int iw = 0; iw < nw; iw++)
++      {
++        This_t& engine    = engines[iw];
++        ptr_buffer[0][iw] = engine.U_gpu.data();
++        ptr_buffer[1][iw] = engine.psiMinv.device_data();
++        ptr_buffer[2][iw] = engine.tempMat_gpu.data();
++        ptr_buffer[3][iw] = reinterpret_cast<T*>(engine.delay_list_gpu.data());
++        ptr_buffer[4][iw] = engine.V_gpu.data();
++        ptr_buffer[5][iw] = engine.Binv_gpu.data();
++      }
+ 
+-    cudaErrorCheck(cudaMemcpyAsync(updateInv_buffer_H2D.device_data(), updateInv_buffer_H2D.data(),
+-                                   updateInv_buffer_H2D.size(), cudaMemcpyHostToDevice, cuda_handles_->hstream),
+-                   "cudaMemcpyAsync updateInv_buffer_H2D failed!");
++      cudaErrorCheck(cudaMemcpyAsync(updateInv_buffer_H2D.device_data(), updateInv_buffer_H2D.data(),
++                                     updateInv_buffer_H2D.size(), cudaMemcpyHostToDevice, cuda_handles_->hstream),
++                     "cudaMemcpyAsync updateInv_buffer_H2D failed!");
++    }
+ 
+     T** U_mw_ptr            = reinterpret_cast<T**>(updateInv_buffer_H2D.device_data());
+     T** Ainv_mw_ptr         = reinterpret_cast<T**>(updateInv_buffer_H2D.device_data() + sizeof(T*) * nw);
