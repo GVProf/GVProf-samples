@@ -14,6 +14,12 @@ inputs = [torch.randn((1, 64, 56, 56), device=device),
 convs = [3, 4, 6, 3]
 
 with torch.no_grad():
+    input = torch.randn((1, 3, 224, 224), device=device) 
+    conv7x7 = torch.nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=1, groups=1, bias=False, dilation=1).cuda()
+
+    for _ in range(100):
+        conv7x7(input)
+
     for i in range(len(channels)):
         channel = channels[i]
         conv = convs[i]
