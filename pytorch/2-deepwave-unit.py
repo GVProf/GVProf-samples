@@ -14,4 +14,5 @@ t = time.time()
 for i in range(300):
     output = m(input)
     output.backward(grad)
-print('time: {:.4f}s'.format((time.time() - t) / 300))
+print(output[0][0][0][0][0])
+print('time: {:.6f}s'.format(time.time() - t))
