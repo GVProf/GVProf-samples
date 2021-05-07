@@ -15,4 +15,4 @@ for i in range(300):
     output = m(input)
     output.backward(grad)
 print(output[0][0][0][0][0])
-print('time: {:.6f}s'.format(time.time() - t))
+print('time: {:.6f}s'.format((time.time() - t) / 300))
